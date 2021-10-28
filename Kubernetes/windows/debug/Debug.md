@@ -4,19 +4,31 @@
 
 Usage:
 
-	On an Administrative Powershell Window
+- Open an elevated Powershell console (Run as Administrator).
 
-	Set-ExecutionPolicy Bypass
+- Run: ```PowerShell Set-ExecutionPolicy Bypass```
+  
+- Execute the script using one of these two options.
 
-	Start-BitsTransfer https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1
+Execute directly (support files will still be downloaded to C:\k\debug).
+```PowerShell
+Invoke-WebRequest https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/Get-SdnLogs.ps1 -UseBasicParsing | Invoke-Expression
+```
+> Note: Older versions of PowerShell 7 may not accept -UseBasicParsing. Either upgrade to the latest version of PowerShell 7 or remove the parameter from the command.
 
-	.\collectlogs.ps1 
+Download and execute.
+```PowerShell
+Start-BitsTransfer https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/collectlogs.ps1
 
-		Would collect all the required logs to validate if all policies has been plumbled.
-	
-		Folder with a random name will be generate with a bunch of text files. Please send us the folder.
+.\Get-SdnLogs.ps1 
+```
 
-2. [Packet Capture]:
+- The script will collect...
+   - All the required logs to validate if all policies has been plumbed correctly.
+   - The files will be stored in a folder named SdnLogs\_\<COMPUTERNAME\>\_\<TIMESTAMP\>. 
+   - Please send use this folder for all support and issue requests.
+
+1. [Packet Capture]:
 
 ====================================================
 
