@@ -23,7 +23,7 @@ param
 
     # Collects logs after user presses q to stop tracing. Ignored when -NoPrompt set.
     [switch]
-    $CollectLogs
+    $NoLogs
 )
 
 ## FUNCTIONS ##
@@ -102,11 +102,6 @@ if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne '
 
 # default file download location
 $BaseDir = "C:\k\debug"
-$helper = "$BaseDir\DebugHelper.psm1"
-
-# pwsh 5 or 7?
-$pwshVer = $host.Version.Major
-
 
 
 ##### Do prep work #####
@@ -144,7 +139,7 @@ $paramSplat = @{
     maxFileSize  = $maxFileSize
     NoPrompt     = $NoPrompt
     NoPackets    = $NoPackets
-    CollectLogs  = $CollectLogs
+    NoLogs       = $NoLogs
 }
 
 Push-Location $BaseDir

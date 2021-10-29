@@ -27,7 +27,7 @@ param
 
     # Collects logs after user presses q to stop tracing. Ignored when -NoPrompt set.
     [switch]
-    $CollectLogs
+    $NoLogs
 )
 
 ### CLASSES AND FUNCTIONS ###
@@ -302,7 +302,7 @@ if (-NOT $NoPrompt.IsPresent)
     Remove-NetEventSession $sessionName | Out-Null
 
     # run Get-SdnLogs.ps1 when -CollectLogs set
-    if ($CollectLogs.IsPresent)
+    if (-NOT $NoLogs.IsPresent)
     {
         Write-Verbose "Trying to run Get-SdnLogs.ps1"
         $BaseDir = "c:\k\debug"
