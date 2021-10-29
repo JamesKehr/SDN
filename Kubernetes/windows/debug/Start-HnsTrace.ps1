@@ -23,7 +23,10 @@ param
 
     # Collects logs after user presses q to stop tracing. Ignored when -NoPrompt set.
     [switch]
-    $NoLogs
+    $NoLogs,
+
+    [switch]
+    $NoInternet
 )
 
 ## FUNCTIONS ##
@@ -84,6 +87,8 @@ function Get-WebFile
     } catch {
         return ( Write-Error "Failed to download $Url`: $_" -EA Stop )
     }
+
+    return $Destination
 }
 
 
@@ -119,15 +124,60 @@ catch
 }
 
 # support files needed to start trace
-try
+if ($NoInternet.IsPresent)
 {
-    Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/Start-Trace.ps1" -Destination $BaseDir\Start-Trace.ps1 -EA Stop
-    Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/$providerFilename" -Destination "$BaseDir\$providerFilename" -EA Stop
+    # look for the required files in BaseDir
+    $traceFnd = Get-Item "$BaseDir\Start-Trace.ps1" -EA SilentlyContinue
+    $provFnd = Get-Item "$BaseDir\$providerFilename" -EA SilentlyContinue
+
+    if (-NOT $traceFnd -and -NOT $provFnd)
+    {
+        # look for the required files in PWD
+        $traceFnd = Get-Item .\Start-Trace.ps1 -EA SilentlyContinue
+        $provFnd = Get-Item ".\$providerFilename" -EA SilentlyContinue
+
+        if ($traceFnd -and $provFnd)
+        {
+            $BaseDir = $PWD.Path
+        }
+        else 
+        {
+            # look in $PSScriptRoot inb case it's different than $PWD
+            if ($PSScriptRoot)
+            {
+                $traceFnd = Get-Item "$PSScriptRoot\Start-Trace.ps1" -EA SilentlyContinue
+                $provFnd = Get-Item "$PSScriptRoot\$providerFilename" -EA SilentlyContinue
+                
+                if ($traceFnd -and $provFnd)
+                {
+                    $BaseDir = $PSScriptRoot
+                }
+                else 
+                {
+                    return ( Write-Error "Failed to find the requierd trace files when -NoInternet is set." -EA Stop )
+                }
+            }
+            else 
+            {
+                return ( Write-Error "Failed to find the requierd trace files when -NoInternet is set." -EA Stop )
+            }
+        }
+    }
 }
-catch
+else 
 {
-    return ( Write-Error "Unable to download or find the required trace files. Please manually download Start-Trace.ps1 and $providerFilename and try again: $_" -EA Stop )
+    # downloaded the newest copy of the files
+    try
+    {
+        Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/Start-Trace.ps1" -Destination $BaseDir\Start-Trace.ps1 -Force -EA Stop
+        Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/$providerFilename" -Destination "$BaseDir\$providerFilename" -Force -EA Stop
+    }
+    catch
+    {
+        return ( Write-Error "Unable to download or find the required trace files. Please manually download Start-Trace.ps1 and $providerFilename and try again: $_" -EA Stop )
+    }    
 }
+
 
 
 ## Execute Trace ##
