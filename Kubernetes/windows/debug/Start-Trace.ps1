@@ -318,16 +318,17 @@ if (-NOT $NoPrompt.IsPresent)
             {
                 #$URLSdnLogs = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/Get-SdnLogs.ps1'
                 $URLSdnLogs = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/Get-SdnLogs.ps1'
-                $isCLFnd = Get-WebFile -URI $URLSdnLogs -savePath "$BaseDir" -fileName 'Get-SdnLogs.ps1'
+                Get-WebFile -Url $URLSdnLogs -Destination "$BaseDir\Get-SdnLogs.ps1" -EA Stop
+                $isCLFnd = "$BaseDir\Get-SdnLogs.ps1"
             }
             catch 
             {
-                return (Write-Warning "The trace was successful but Get-SdnLogs failed to download: $_" -EA Stop)
+                Write-Warning "The trace was successful but Get-SdnLogs failed to download: $_"
             }
         }
         else 
         {
-            $isCLFnd = $isCLFnd.FullName    
+            $isCLFnd = $isCLFnd.FullName
         }
 
         # execute Get-SdnLogs.ps1

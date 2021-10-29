@@ -88,7 +88,7 @@ function Get-WebFile
         return ( Write-Error "Failed to download $Url`: $_" -EA Stop )
     }
 
-    return $Destination
+    #return $Destination
 }
 
 
