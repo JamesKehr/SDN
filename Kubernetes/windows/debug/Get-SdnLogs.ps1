@@ -43,7 +43,7 @@ if (-NOT (Test-Path $helper))
     switch ($pwshVer)
     {
         5 { Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
-        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/helper.psm1" -OutFile "$BaseDir\helper.psm1" }
+        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
     }
 }
 
