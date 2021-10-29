@@ -1,4 +1,4 @@
-[CmdletBinding()]
+#[CmdletBinding()]
 param
 (
     # Path with filename where the ETL file will be saved. Format: <path>\<filename>.etl
