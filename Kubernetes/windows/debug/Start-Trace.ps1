@@ -318,7 +318,7 @@ if (-NOT $NoPrompt.IsPresent)
             {
                 #$URLSdnLogs = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/Get-SdnLogs.ps1'
                 $URLSdnLogs = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/Get-SdnLogs.ps1'
-                Get-WebFile -Url $URLSdnLogs -Destination "$BaseDir\Get-SdnLogs.ps1" -EA Stop
+                Get-WebFile -Url $URLSdnLogs -Destination "$BaseDir\Get-SdnLogs.ps1" -Force -EA Stop
             }
             catch 
             {
