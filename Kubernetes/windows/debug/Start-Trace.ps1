@@ -319,25 +319,19 @@ if (-NOT $NoPrompt.IsPresent)
                 #$URLSdnLogs = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/Get-SdnLogs.ps1'
                 $URLSdnLogs = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/Get-SdnLogs.ps1'
                 Get-WebFile -Url $URLSdnLogs -Destination "$BaseDir\Get-SdnLogs.ps1" -EA Stop
-                $isCLFnd = "$BaseDir\Get-SdnLogs.ps1"
             }
             catch 
             {
                 Write-Warning "The trace was successful but Get-SdnLogs failed to download: $_"
             }
         }
-        else 
-        {
-            $isCLFnd = $isCLFnd.FullName
-        }
 
         # execute Get-SdnLogs.ps1
-        if ($isCLFnd)
-        {
-            Write-Host "Running Get-SdnLogs.ps1."
-            # redirecting as much of the collectlog output to the success stream for collection
-            $clResults = &$isCLFnd *>&1 | ForEach-Object ToString
-        }
+        Write-Host "Running Get-SdnLogs.ps1."
+        # redirecting as much of the collectlog output to the success stream for collection
+        Push-Location $BaseDir
+        .\Get-SdnLogs.ps1
+        Pop-Location
     }
 
     Write-Host -ForegroundColor Green "`n`nAll done! The data is located at:`n`t- $EtlFile $(if ($clResults) {"`n`t- $($clResults[-1].Substring(22))"})"

@@ -49,7 +49,7 @@ if (-NOT (Test-Path $helper))
 
 try 
 {
-    $null = Import-Module $helper -EA Stop    
+    $null = Import-Module -Name "$BaseDir\DebugHelper.psm1" -Verbose -EA Stop
 }
 catch 
 {
