@@ -1,4 +1,4 @@
-#[CmdletBinding()]
+[CmdletBinding()]
 param
 (
     # Path with filename where the ETL file will be saved. Format: <path>\<filename>.etl
@@ -25,6 +25,67 @@ param
     [switch]
     $CollectLogs
 )
+
+## FUNCTIONS ##
+
+function Get-WebFile
+{
+    param(
+        [parameter(Mandatory = $true)] 
+        [string]
+        $Url,
+        
+        [parameter(Mandatory = $true)]
+        [string]
+        $Destination,
+
+        [parameter(Mandatory = $false)]
+        [switch]
+        $Force
+    )
+
+    # Write-Verbose "Get-WebFile - "
+    Write-Verbose "Get-WebFile - Start"
+
+    if ((Test-Path $Destination) -and -NOT $Force.IsPresent )
+    {
+        Write-Verbose "File $Destination already exists."
+        return
+    }
+
+    # Github and other sites do not allow versions of TLS/SSL older than TLS 1.2.
+    # This block forces PowerShell to use TLS 1.2+.
+    if ([System.Net.ServicePointManager]::SecurityProtocol -contains 'SystemDefault' -or  [System.Net.ServicePointManager]::SecurityProtocol -contains 'Tls11')
+    {
+        Write-Verbose "Get-WebFile - Enforcing TLS 1.2+ for the secure download."
+        $secureProtocols = @() 
+
+        # Exclude all cipher protocols older than TLS 1.2.
+        $insecureProtocols = @( [System.Net.SecurityProtocolType]::SystemDefault, 
+                                [System.Net.SecurityProtocolType]::Ssl3, 
+                                [System.Net.SecurityProtocolType]::Tls, 
+                                [System.Net.SecurityProtocolType]::Tls11)
+
+        foreach ($protocol in [System.Enum]::GetValues([System.Net.SecurityProtocolType])) 
+        { 
+            if ($insecureProtocols -notcontains $protocol) 
+            { 
+                $secureProtocols += $protocol 
+            } 
+        } 
+
+        [System.Net.ServicePointManager]::SecurityProtocol = $secureProtocols
+    }
+    
+    
+    try {
+        (New-Object System.Net.WebClient).DownloadFile($Url,$Destination)
+        Write-Verbose "Get-WebFile - Downloaded $Url => $Destination"
+    } catch {
+        return ( Write-Error "Failed to download $Url`: $_" -EA Stop )
+    }
+}
+
 
 ## CONSTANTS ##
 # look for the provider file
@@ -62,27 +123,6 @@ catch
     return ( Write-Error "Failed to create the base directory, $BaseDir. Please verify user permissions to the C: drive. Error: $_" -EA Stop )
 }
 
-
-# newer versions of pwsh support -UseBasicParsing, but leaving this here in case someone hasn't updated in a while
-if (-NOT (Test-Path $helper))
-{
-    switch ($pwshVer)
-    {
-        5 { Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
-        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/helper.psm1" -OutFile "$BaseDir\helper.psm1" }
-    }
-}
-
-try 
-{
-    $null = Import-Module $helper -EA Stop    
-}
-catch 
-{
-    return (Write-Error "Could not load helper file: $_" -EA Stop)
-}
-
-
 # support files needed to start trace
 try
 {
@@ -93,9 +133,6 @@ catch
 {
     return ( Write-Error "Unable to download or find the required trace files. Please manually download Start-Trace.ps1 and $providerFilename and try again: $_" -EA Stop )
 }
-
-
-
 
 
 ## Execute Trace ##
