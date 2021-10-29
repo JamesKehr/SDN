@@ -326,7 +326,7 @@ General notes
 
                 if ($Cert -eq $null) {
                     write-verbose "Creating new self signed certificate in My store."
-                    $cert = New-SelfSignedCertificate -Type Custom -KeySpec KeyExchange -Subject "CN=$NodeFQDN" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation "Cert:\LocalMachine\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2")
+                    $cert = New-SelfSignedCertificate -Type Custom -KeySpec KeyExchange -Subject "CN=$NodeFQDN" -KeyExportPolicy Exportable -HashAlgorithm sha256 -KeyLength 2048 -CertStoreLocation "Cert:\LocalMachine\My" -TextExtension @("2.5.29.37={text}1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2") -DNSNAME $RESTName
                 } else {
                     $HasServerEku = ($cert.EnhancedKeyUsageList | where-object {$_.ObjectId -eq "1.3.6.1.5.5.7.3.1"}) -ne $null
                     $HasClientEku = ($cert.EnhancedKeyUsageList | where-object {$_.ObjectId -eq "1.3.6.1.5.5.7.3.2"}) -ne $null
@@ -686,7 +686,7 @@ function Add-SDNExpressVirtualNetworkPASubnet
     }
 
     foreach ($server in $ServerObjects) {
-        if (!($PALogicalSubnet.resourceref -in $server.properties.networkinterfaces.properties.logicalsubnets.resourceref)) {
+        if (($server.properties.networkinterfaces.properties.logicalsubnets.count -eq 0) -or !($PALogicalSubnet.resourceref -in $server.properties.networkinterfaces.properties.logicalsubnets.resourceref)) {
             write-sdnexpresslog "Adding subnet to $($server.resourceid)."
             $server.properties.networkinterfaces[0].properties.logicalsubnets += $PALogicalSubnet
             New-networkcontrollerserver @DefaultRestParams -resourceid $server.resourceid -properties $server.properties -force | out-null
@@ -716,7 +716,23 @@ function New-SDNExpressLoadBalancerManagerConfiguration
     [cmdletbinding(DefaultParameterSetName="Default")]
     param(
         [String] $RestName,
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({
+            $split = $_.split('/')
+            if ($split.count -ne 2) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, PrivateVIPPrefix must be in CIDR format with the syntax of <IP subnet>/<Subnet bits>."}
+            if (!($split[0] -as [ipaddress] -as [bool])) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, Invalid subnet portion of PrivateVIPPrefix parameter."}
+            if (($split[1] -le 0) -or ($split[1] -gt 32)) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, Invalid subnet bits portion of PrivateVIPPrefix parameter."}
+            return $true
+        })]       
         [String] $PrivateVIPPrefix,
+        [Parameter(Mandatory=$true)]
+        [ValidateScript({
+            $split = $_.split('/')
+            if ($split.count -ne 2) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, PublicVIPPrefix must be in CIDR format with the syntax of <IP subnet>/<Subnet bits>."}
+            if (!($split[0] -as [ipaddress] -as [bool])) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, Invalid subnet portion of PublicVIPPrefix parameter."}
+            if (($split[1] -le 0) -or ($split[1] -gt 32)) { throw "When calling function New-SDNExpressLoadBalancerManagerConfiguration, Invalid subnet bits portion of PublicVIPPrefix parameter."}
+            return $true
+        })]       
         [String] $PublicVIPPrefix,
         [String] $SLBMVip = (get-ipaddressinsubnet -subnet $PrivateVIPPrefix -offset 1),
         [String] $PrivateVIPPoolStart = (get-ipaddressinsubnet -subnet $PrivateVIPPrefix -offset 1),
@@ -1252,6 +1268,34 @@ Function Add-SDNExpressHost {
         function private:write-verbose { param([String] $Message) write-output "[V]"; write-output $Message}
         function private:write-output { param([PSObject[]] $InputObject) write-output "$($InputObject.count)"; write-output $InputObject}
 
+        $allnics = Get-VMNetworkAdapter -VMName * | ? {$_.SwitchName -eq $VirtualSwitchName}
+
+        foreach ($nic in $allnics) {
+            $currentProfile = Get-VMSwitchExtensionPortFeature -FeatureId "9940cd46-8b06-43bb-b9d5-93d50381fd56" -VMNetworkAdapter $nic
+
+            if ( $currentProfile -eq $null)
+            {
+                write-verbose "Adding Null port profile to $($nic.VMName) adapter $($nic.Name) so traffic is not blocked."
+
+                #No port profile set yet, add a null profile so traffic isn't blocked
+                $portProfileDefaultSetting = Get-VMSystemSwitchExtensionPortFeature -FeatureId "9940cd46-8b06-43bb-b9d5-93d50381fd56"
+                $portProfileDefaultSetting.SettingData.ProfileId = "{$([Guid]::Empty)}"
+                $portProfileDefaultSetting.SettingData.NetCfgInstanceId = "{56785678-a0e5-4a26-bc9b-c0cba27311a3}"
+                $portProfileDefaultSetting.SettingData.CdnLabelString = "TestCdn"
+                $portProfileDefaultSetting.SettingData.CdnLabelId = 1111
+                $portProfileDefaultSetting.SettingData.ProfileName = "Testprofile"
+                $portProfileDefaultSetting.SettingData.VendorId = "{1FA41B39-B444-4E43-B35A-E1F7985FD548}"
+                $portProfileDefaultSetting.SettingData.VendorName = "NetworkController"
+                $portProfileDefaultSetting.SettingData.ProfileData = 2 #Disable VFP on port so VMs continue to work as before
+                
+                Add-VMSwitchExtensionPortFeature -VMSwitchExtensionFeature  $portProfileDefaultSetting -VMNetworkAdapter $nic | out-null
+            }        
+            else
+            {
+                #Leave as-is
+                write-verbose "$($nic.VMName) adapter $($nic.Name) already has port feature set, not changing."
+            }
+        }
         write-verbose "Configuring and restarting host agent."
         Stop-Service -Name NCHostAgent -Force | out-null
         Set-Service -Name NCHostAgent  -StartupType Automatic | out-null
@@ -1279,26 +1323,26 @@ Function Add-SDNExpressHost {
             $NodeFQDN = (get-ciminstance win32_computersystem).DNSHostName+"."+(get-ciminstance win32_computersystem).Domain
 
             $slbhpconfigtemplate = @"
-    <?xml version=`"1.0`" encoding=`"utf-8`"?>
-    <SlbHostPluginConfiguration xmlns:xsd=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`">
-        <SlbManager>
-            <HomeSlbmVipEndpoints>
-                <HomeSlbmVipEndpoint>$($SLBMVIP):8570</HomeSlbmVipEndpoint>
-            </HomeSlbmVipEndpoints>
-            <SlbmVipEndpoints>
-                <SlbmVipEndpoint>$($SLBMVIP):8570</SlbmVipEndpoint>
-            </SlbmVipEndpoints>
-            <SlbManagerCertSubjectName>$RESTName</SlbManagerCertSubjectName>
-        </SlbManager>
-        <SlbHostPlugin>
-            <SlbHostPluginCertSubjectName>$NodeFQDN</SlbHostPluginCertSubjectName>
-        </SlbHostPlugin>
-        <NetworkConfig>
-            <MtuSize>0</MtuSize>
-            <JumboFrameSize>4088</JumboFrameSize>
-            <VfpFlowStatesLimit>500000</VfpFlowStatesLimit>
-        </NetworkConfig>
-    </SlbHostPluginConfiguration>
+<?xml version=`"1.0`" encoding=`"utf-8`"?>
+<SlbHostPluginConfiguration xmlns:xsd=`"http://www.w3.org/2001/XMLSchema`" xmlns:xsi=`"http://www.w3.org/2001/XMLSchema-instance`">
+    <SlbManager>
+        <HomeSlbmVipEndpoints>
+            <HomeSlbmVipEndpoint>$($SLBMVIP):8570</HomeSlbmVipEndpoint>
+        </HomeSlbmVipEndpoints>
+        <SlbmVipEndpoints>
+            <SlbmVipEndpoint>$($SLBMVIP):8570</SlbmVipEndpoint>
+        </SlbmVipEndpoints>
+        <SlbManagerCertSubjectName>$RESTName</SlbManagerCertSubjectName>
+    </SlbManager>
+    <SlbHostPlugin>
+        <SlbHostPluginCertSubjectName>$NodeFQDN</SlbHostPluginCertSubjectName>
+    </SlbHostPlugin>
+    <NetworkConfig>
+        <MtuSize>0</MtuSize>
+        <JumboFrameSize>4088</JumboFrameSize>
+        <VfpFlowStatesLimit>500000</VfpFlowStatesLimit>
+    </NetworkConfig>
+</SlbHostPluginConfiguration>
 "@
         
             set-content -value $slbhpconfigtemplate -path 'c:\windows\system32\slbhpconfig.xml' -encoding UTF8
@@ -1416,6 +1460,28 @@ function Write-SDNExpressLog
     $formattedMessage | out-file ".\$logname" -Append
 }
 
+
+function Write-SDNExpressLogParameter
+{
+    Param(
+        [string] $paramname,
+        [Object] $value
+
+    )
+    if ($null -eq $value) {
+        Write-SDNExpressLog "  -$($paramname): null"
+    } elseif ($value.gettype().Name -eq "Object[]") {
+        for ($i = 0; $i -lt $value.count; $i++ ) {
+            Write-SDNExpressLogParameter "$($paramname)[$i]" $value[$i]
+        }
+    } elseif ($value.getType().Name -eq "Hashtable") {
+        foreach ($key in $value.keys) {
+            Write-SDNExpressLogParameter "$paramname.$key" $value[$key]
+        }
+    } else {
+        Write-SDNExpressLog "  -$($paramname): $($value)"
+    }
+}
 function Write-SDNExpressLogFunction 
 {
     Param(
@@ -1430,7 +1496,8 @@ function Write-SDNExpressLogFunction
         if ($param.ToUpper().Contains("PASSWORD") -or $param.ToUpper().Contains("KEY")) {
             Write-SDNExpressLog "  -$($param): ******"
         } else {
-            Write-SDNExpressLog "  -$($param): $($BoundParameters[$param])"
+            $value = $BoundParameters[$param]
+            Write-SDNExpressLogParameter $param $value
         }
     }
     Write-SDNExpressLog "Unbound Arguments: $UnboundArguments"
@@ -1504,7 +1571,6 @@ function Get-IPAddressInSubnet
     write-sdnexpresslog "   -Offset: $Offset"
 
     $prefix = ($subnet.split("/"))[0]
-    $bits = ($subnet.split("/"))[1]
 
     $ip = [ipaddress] $prefix
  
@@ -2386,6 +2452,7 @@ function New-SDNExpressVM
     $VHDFullPath = "$VHDSrcPath\$VHDName" 
     $VMPath = "$VHDLocation\$VMName"
     $IsSMB = $VMLocation.startswith("\\")
+    $IsCSV = $false
 
     $VM = $null
 
@@ -2482,10 +2549,10 @@ function New-SDNExpressVM
     }
 
     Write-LogProgress -OperationId $operationId -Source $MyInvocation.MyCommand.Name -Percent 50 -context $VMName
-
+    
     write-sdnexpresslog "Creating VM directory and copying VHD.  This may take a few minutes."
     write-sdnexpresslog "Copy from $VHDFullPath to $VMPath"
-    
+
     New-Item -ItemType Directory -Force -Path $VMPath | out-null
     copy-item -Path $VHDFullPath -Destination $VMPath | out-null
 
@@ -2523,7 +2590,7 @@ function New-SDNExpressVM
                         <Identifier>0</Identifier>
                         <Prefix>0.0.0.0/0</Prefix>
                         <Metric>20</Metric>
-                        <NextHopAddress>$($Nic.Gateway))</NextHopAddress>
+                        <NextHopAddress>$($Nic.Gateway)</NextHopAddress>
                     </Route>
                 </routes>
 "@
@@ -2550,9 +2617,7 @@ function New-SDNExpressVM
                         $alldns += '<IpAddress wcm:action="add" wcm:keyValue="{1}">{0}</IpAddress>' -f $dns, $count++
                 }
 
-                if ($Nic.DNS.count -gt 0) {
-                    $dnsregistration = "true"
-                }
+                $dnsregistration = "true"
             }
             $dnsinterfaces += @"
                 <Interface wcm:action="add">
@@ -2684,6 +2749,39 @@ $DNSInterfaces
 
         write-sdnexpresslog "Writing unattend.xml to $MountPath\unattend.xml"
         Set-Content -value $UnattendFile -path "$MountPath\unattend.xml" | out-null
+
+        New-Item -ItemType Directory -Force -Path "$MountPath\Windows\Setup\Scripts" | out-null
+
+        $setupcompletecmdfile = 'PowerShell -file "\Windows\Setup\Scripts\SetupComplete.ps1"'
+        Set-Content -value $SetupCompleteCMDFile -path "$MountPath\Windows\Setup\Scripts\SetupComplete.cmd" | out-null
+
+        $setupcompleteps1file = @'
+new-eventlog -logname "Application" -source "SDNExpress" -ErrorAction SilentlyContinue
+Write-EventLog -LogName "Application" -Source "SDNExpress" -EventId 0 -Category 0 -EntryType Information -Message "NetworkCategory check." -ErrorAction SilentlyContinue 
+$try = 0
+while ($true) {
+    $try++
+
+    $Profiles = get-netconnectionprofile
+
+    foreach ($profile in $profiles) { 
+        Write-EventLog -LogName "Application" -Source "SDNExpress" -EventId 0 -Category 0 -EntryType Information -Message "$($profile.interfacealias) NetworkCategory is $($profile.NetworkCategory)." -ErrorAction SilentlyContinue 
+        if ($profile.NetworkCategory -eq "DomainAuthenticated") {
+            return
+        }
+    }
+
+    Write-EventLog -LogName "Application" -Source "SDNExpress" -EventId 0 -Category 0 -EntryType Information -Message "Not DomainAuthenticated. Reset attempt $try." -ErrorAction SilentlyContinue 
+
+    foreach ($profile in $profiles) { 
+        disable-netadapter -interfaceindex $profile.InterfaceIndex
+        enable-netadapter -interfaceindex $profile.InterfaceIndex
+    }
+
+    sleep 60
+}
+'@
+        Set-Content -value $SetupCompletePS1File -path "$MountPath\Windows\Setup\Scripts\SetupComplete.ps1" | out-null
     }
     catch
     {
@@ -2731,13 +2829,13 @@ $DNSInterfaces
             foreach ($nic in $Nics) {
                 $FormattedMac = [regex]::matches($nic.MacAddress.ToUpper().Replace(":", "").Replace("-", ""), '..').groups.value -join "-"
                 if ($first) {
-                    write-verbose "Configuring first network adapter."
+                    write-verbose "Configuring first network adapter with mac $formattedmac."
                     $vnic = $NewVM | get-vmnetworkadapter 
                     $vnic | rename-vmnetworkadapter -newname $Nic.Name
                     $vnic | Set-vmnetworkadapter -StaticMacAddress $FormattedMac
                     $first = $false
                 } else {
-                    write-verbose "Configuring additional network adapters."
+                    write-verbose "Configuring additional network adapters with mac $formattedmac."
                     #Note: add-vmnetworkadapter doesn't actually return the vnic object for some reason which is why this does a get immediately after.
                     $vnic = $NewVM | Add-VMNetworkAdapter -SwitchName $SwitchName -Name $Nic.Name -StaticMacAddress $FormattedMac
                     $vnic = $NewVM | get-vmnetworkadapter -Name $Nic.Name  
@@ -2849,3 +2947,4 @@ Export-ModuleMember -Function Enable-SDNExpressVMPort
 
 Export-ModuleMember -Function WaitForComputerToBeReady
 Export-ModuleMember -Function write-SDNExpressLog
+Export-ModuleMember -Function Get-IPAddressInSubnet

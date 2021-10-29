@@ -7,7 +7,9 @@ param()
 
 ##### Setup variables #####
 
-$GithubSDNRepository = 'Microsoft/SDN'
+$env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
+$GithubSDNRepository = 'Microsoft/SDN/master'
+
 if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
 {
     $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
@@ -40,8 +42,8 @@ if (-NOT (Test-Path $helper))
 {
     switch ($pwshVer)
     {
-        5 { Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
-        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/helper.psm1" -OutFile "$BaseDir\helper.psm1" }
+        5 { Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
+        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/helper.psm1" -OutFile "$BaseDir\helper.psm1" }
     }
 }
 
@@ -56,13 +58,13 @@ catch
 
 
 # support files that need to be downloaded
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/dumpVfpPolicies.ps1" -Destination $BaseDir\dumpVfpPolicies.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/hns.psm1" -Destination $BaseDir\hns.psm1 -Force
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/starthnstrace.cmd" -Destination $BaseDir\starthnstrace.cmd
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/starthnstrace.ps1" -Destination $BaseDir\starthnstrace.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/startpacketcapture.cmd" -Destination $BaseDir\startpacketcapture.cmd
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/startpacketcapture.ps1" -Destination $BaseDir\stoppacketcapture.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/portReservationTest.ps1" -Destination $BaseDir\portReservationTest.ps1
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/dumpVfpPolicies.ps1" -Destination $BaseDir\dumpVfpPolicies.ps1
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/hns.psm1" -Destination $BaseDir\hns.psm1 -Force
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/starthnstrace.cmd" -Destination $BaseDir\starthnstrace.cmd
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/starthnstrace.ps1" -Destination $BaseDir\starthnstrace.ps1
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/startpacketcapture.cmd" -Destination $BaseDir\startpacketcapture.cmd
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/startpacketcapture.ps1" -Destination $BaseDir\stoppacketcapture.ps1
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/portReservationTest.ps1" -Destination $BaseDir\portReservationTest.ps1
 
 # import the HNS module if it's not already installed
 $hnsModFnd = Get-Command Get-HnsNetwork -EA SilentlyContinue

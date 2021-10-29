@@ -58,11 +58,11 @@ param(
 $ScriptVersion = "2.0"
 
 
-if ((gwmi win32_operatingsystem).caption.Contains("Windows 10")) {
+if ((get-wmiobject win32_operatingsystem).caption.Contains("Windows 10")) {
     get-windowscapability -name rsat.NetworkController.Tools* -online | Add-WindowsCapability -online
 } else {
     $feature = get-windowsfeature "RSAT-NetworkController"
-    if ($feature -eq $null) {
+    if ($null -eq $feature) {
         throw "SDN Express requires Windows Server 2016 or later."
     }
     if (!$feature.Installed) {
@@ -85,7 +85,7 @@ if ($psCmdlet.ParameterSetName -eq "NoParameters") {
 
     import-module .\SDNExpressUI.psm1 -force
     $configData = SDNExpressUI  
-    if ($configData -eq $null)
+    if ($null -eq $configData)
     {
         # user cancelled
         exit
@@ -93,7 +93,7 @@ if ($psCmdlet.ParameterSetName -eq "NoParameters") {
 
 } elseif ($psCmdlet.ParameterSetName -eq "ConfigurationFile") {
     write-sdnexpresslog "Using configuration file passed in by parameter."    
-    $configdata = [hashtable] (iex (gc $ConfigurationDataFile | out-string))
+    $configdata = [hashtable] (Invoke-Expression (Get-Content $ConfigurationDataFile | out-string))
 } elseif ($psCmdlet.ParameterSetName -eq "ConfigurationData") {
     write-sdnexpresslog "Using configuration data object passed in by parameter."    
     $configdata = $configurationData 
@@ -112,12 +112,12 @@ function GetPassword
         [String] $Message,
         [String] $UserName
     )
-    if ([String]::IsNullOrEmpty($SecurePasswordText) -and ($Credential -eq $null)) {
+    if ([String]::IsNullOrEmpty($SecurePasswordText) -and ($null -eq $Credential)) {
         write-sdnexpresslog "No credentials found on command line or in config file.  Prompting."    
         $Credential = get-Credential -Message $Message -UserName $UserName
     }
 
-    if ($Credential -ne $null) {
+    if ($null -ne $Credential) {
         write-sdnexpresslog "Using credentials from the command line."    
         return $Credential.GetNetworkCredential().Password
     }
@@ -130,13 +130,21 @@ function GetPassword
     } catch {
         write-sdnexpresslog "Unable to decrpypt credentials in config file.  Could be from a different user or generated on different computer.  Prompting instead."    
         $Credential = get-Credential -Message $Message -UserName $UserName
-        if ($credential -eq $null) {
+        if ($null -eq $credential) {
             write-sdnexpresslog "User cancelled credential input.  Exiting."    
             exit
         }
         return $Credential.GetNetworkCredential().Password
     }
 
+}
+function GetNextMacAddress
+{
+    param(
+        [String] $MacAddress
+    )
+
+    return ("{0:X12}" -f ([convert]::ToInt64($MacAddress.ToUpper().Replace(":", "").Replace("-", ""), 16) + 1)).Insert(2, "-").Insert(5, "-").Insert(8, "-").Insert(11, "-").Insert(14, "-")
 }
 
 try {
@@ -148,15 +156,30 @@ try {
 
     $credential = New-Object System.Management.Automation.PsCredential($ConfigData.NCUsername, $NCSecurePassword)
 
-    $ManagementSubnetBits = $ConfigData.ManagementSubnet.Split("/")[1]
-    $PASubnetBits = $ConfigData.PASubnet.Split("/")[1]
+    if (![string]::IsNullOrEmpty($ConfigData.ManagementSubnet)) {
+        $ManagementSubnetBits = $ConfigData.ManagementSubnet.Split("/")[1]
+    }
+
+    if ([string]::IsNullOrEmpty($ConfigData.PASubnet)) {
+        if ($ConfigData.Muxes.Count -gt 0) {
+            throw "Load Balancer Mux configuration requires a PA Subnet."
+        }
+        if ($ConfigData.Gateways.Count -gt 0) {
+            throw "Gateway configuration requires a PA Subnet."
+        }
+    }
+    if (($ConfigData.Muxes.count -gt 0) -or ($ConfigData.Gateways.count -gt 0)) {
+        $PASubnetBits = $ConfigData.PASubnet.Split("/")[1]
+    }
+
     $DomainJoinUserNameDomain = $ConfigData.DomainJoinUserName.Split("\")[0]
     $DomainJoinUserNameName = $ConfigData.DomainJoinUserName.Split("\")[1]
     $LocalAdminDomainUserDomain = $ConfigData.LocalAdminDomainUser.Split("\")[0]
     $LocalAdminDomainUserName = $ConfigData.LocalAdminDomainUser.Split("\")[1]
 
-    if ($ConfigData.VMProcessorCount -eq $null) {$ConfigData.VMProcessorCount = 8}
-    if ($ConfigData.VMMemory -eq $null) {$ConfigData.VMMemory = 8GB}
+    if ($null -eq $ConfigData.VMProcessorCount) {$ConfigData.VMProcessorCount = 8}
+    if ($null -eq $ConfigData.VMMemory) {$ConfigData.VMMemory = 8GB}
+    if ([string]::IsNullOrEmpty($ConfigData.PoolName)) {$ConfigData.PoolName = "DefaultAll"}
 
     write-SDNExpressLog "STAGE 1: Create VMs"
 
@@ -189,13 +212,78 @@ try {
         $params.TimeZone = $ConfigData.TimeZone
     }
 
+    $HostNameIter = 0
+    foreach ($NC in $ConfigData.NCs) {
+        if ([string]::IsNullOrEmpty($nc.macaddress)) {
+            $nc.macaddress = $ConfigData.SDNMacPoolStart
+            $configdata.SDNMacPoolStart = GetNextMacAddress($ConfigData.SDNMacPoolStart)
+        }
+
+        if ([string]::IsNullOrEmpty($nc.HostName)) {
+            $nc.HostName = $ConfigData.HyperVHosts[$HostNameIter]
+            $HostNameIter = ($HostNameIter + 1) % $ConfigData.HyperVHosts.Count
+        }
+    }
+    foreach ($Mux in $ConfigData.Muxes) {
+        if ([string]::IsNullOrEmpty($Mux.macaddress)) {
+            $mux.macaddress = $ConfigData.SDNMacPoolStart
+            $configdata.SDNMacPoolStart = GetNextMacAddress($ConfigData.SDNMacPoolStart)
+        }
+        if ([string]::IsNullOrEmpty($Mux.pamacaddress)) {
+            $mux.pamacaddress = $ConfigData.SDNMacPoolStart
+            $configdata.SDNMacPoolStart = GetNextMacAddress($ConfigData.SDNMacPoolStart)
+        }
+        if ([string]::IsNullOrEmpty($Mux.HostName)) {
+            $Mux.HostName = $ConfigData.HyperVHosts[$HostNameIter]
+            $HostNameIter = ($HostNameIter + 1) % $ConfigData.HyperVHosts.Count
+        }
+        if ([string]::IsNullOrEmpty($Mux.PAIPAddress)) {
+            $Mux.PAIPAddress = $ConfigData.PAPoolStart
+            $ConfigData.PAPoolStart = Get-IPAddressInSubnet -Subnet $ConfigData.PAPoolStart -Offset 1
+        }
+    }
+    #Allocate GW management MACs from outside of SDN pool
+    foreach ($gateway in $ConfigData.Gateways) {
+        if ([string]::IsNullOrEmpty($Gateway.macaddress)) {
+            $gateway.macaddress = $ConfigData.SDNMacPoolStart
+            $configdata.SDNMacPoolStart = GetNextMacAddress($ConfigData.SDNMacPoolStart)
+        }
+        if ([string]::IsNullOrEmpty($Gateway.HostName)) {
+            $Gateway.HostName = $ConfigData.HyperVHosts[$HostNameIter]
+            $HostNameIter = ($HostNameIter + 1) % $ConfigData.HyperVHosts.Count
+        }        
+    }
+    #Allocate GW FE & BE macs, FE IP from within SDN mac and PA pools
+    $nextmac = $configdata.SDNMacPoolStart
+    $PAOffset = 0
+    foreach ($gateway in $ConfigData.Gateways) {
+        if ([string]::IsNullOrEmpty($Gateway.FrontEndMac)) {
+            $gateway.FrontEndMac = $nextmac
+            $nextmac = GetNextMacAddress($nextmac)
+        }
+        if ([string]::IsNullOrEmpty($Gateway.BackEndMac)) {
+            $gateway.BackEndMac = $nextmac
+            $nextmac = GetNextMacAddress($nextmac)
+        }
+        if ([string]::IsNullOrEmpty($Gateway.FrontEndIP)) {
+            $Gateway.FrontEndIP = Get-IPAddressInSubnet -Subnet $ConfigData.PAPoolStart -Offset $PAOffset
+            $PAOffset += 1
+        }
+    }
+
     write-SDNExpressLog "STAGE 1.1: Create NC VMs"
     foreach ($NC in $ConfigData.NCs) {
         $params.ComputerName=$NC.HostName;
         $params.VMName=$NC.ComputerName;
-        $params.Nics=@(
-            @{Name="Management"; MacAddress=$NC.MacAddress; IPAddress="$($NC.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID}
-        );
+        if ([string]::IsNullOrEmpty($NC.ManagementIP)) {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$NC.MacAddress; VLANID=$ConfigData.ManagementVLANID}
+            )
+        } else {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$NC.MacAddress; IPAddress="$($NC.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID}
+            )
+        }
         $params.Roles=@("NetworkController","NetworkControllerTools")
         New-SDNExpressVM @params
     }
@@ -205,10 +293,17 @@ try {
     foreach ($Mux in $ConfigData.Muxes) {
         $params.ComputerName=$mux.HostName;
         $params.VMName=$mux.ComputerName;
-        $params.Nics=@(
-            @{Name="Management"; MacAddress=$Mux.MacAddress; IPAddress="$($Mux.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID},
-            @{Name="HNVPA"; MacAddress=$Mux.PAMacAddress; IPAddress="$($Mux.PAIPAddress)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID; IsMuxPA=$true}
-        );
+        if ([string]::IsNullOrEmpty($Mux.ManagementIP)) {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$Mux.MacAddress; VLANID=$ConfigData.ManagementVLANID},
+                @{Name="HNVPA"; MacAddress=$Mux.PAMacAddress; IPAddress="$($Mux.PAIPAddress)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID; IsMuxPA=$true}
+            )
+        } else {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$Mux.MacAddress; IPAddress="$($Mux.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID},
+                @{Name="HNVPA"; MacAddress=$Mux.PAMacAddress; IPAddress="$($Mux.PAIPAddress)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID; IsMuxPA=$true}
+            )
+        }
         $params.Roles=@("SoftwareLoadBalancer")
 
         New-SDNExpressVM @params
@@ -219,11 +314,19 @@ try {
     foreach ($Gateway in $ConfigData.Gateways) {
         $params.ComputerName=$Gateway.HostName;
         $params.VMName=$Gateway.ComputerName;
-        $params.Nics=@(
-            @{Name="Management"; MacAddress=$Gateway.MacAddress; IPAddress="$($Gateway.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID}
-            @{Name="FrontEnd"; MacAddress=$Gateway.FrontEndMac; IPAddress="$($Gateway.FrontEndIp)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID},
-            @{Name="BackEnd"; MacAddress=$Gateway.BackEndMac; VLANID=$ConfigData.PAVLANID}
-        );
+        if ([string]::IsNullOrEmpty($Mux.ManagementIP)) {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$Gateway.MacAddress; VLANID=$ConfigData.ManagementVLANID}
+                @{Name="FrontEnd"; MacAddress=$Gateway.FrontEndMac; IPAddress="$($Gateway.FrontEndIp)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID},
+                @{Name="BackEnd"; MacAddress=$Gateway.BackEndMac; VLANID=$ConfigData.PAVLANID}
+            );
+        } else {
+            $params.Nics=@(
+                @{Name="Management"; MacAddress=$Gateway.MacAddress; IPAddress="$($Gateway.ManagementIP)/$ManagementSubnetBits"; Gateway=$ConfigData.ManagementGateway; DNS=$ConfigData.ManagementDNS; VLANID=$ConfigData.ManagementVLANID}
+                @{Name="FrontEnd"; MacAddress=$Gateway.FrontEndMac; IPAddress="$($Gateway.FrontEndIp)/$PASubnetBits"; VLANID=$ConfigData.PAVLANID},
+                @{Name="BackEnd"; MacAddress=$Gateway.BackEndMac; VLANID=$ConfigData.PAVLANID}
+            );
+        }
         $params.Roles=@("RemoteAccess", "RemoteAccessServer", "RemoteAccessMgmtTools", "RemoteAccessPowerShell", "RasRoutingProtocols", "Web-Application-Proxy")
 
         New-SDNExpressVM @params
@@ -256,7 +359,7 @@ try {
             param(
                 $RESTName
             )
-            return (get-childitem "cert:\localmachine\my" | where {$_.Subject -eq "CN=$RestName"}).Thumbprint
+            return (get-childitem "cert:\localmachine\my" | Where-Object {$_.Subject -eq "CN=$RestName"}).Thumbprint
         } -ArgumentList $ConfigData.RestName
 
         $NCHostCert = get-childitem "cert:\localmachine\root\$NCHostCertThumb"
@@ -271,28 +374,35 @@ try {
         }
         New-SDNExpressVirtualNetworkManagerConfiguration @Params -Credential $Credential
 
-        $params = @{
-            'RestName' = $ConfigData.RestName;
-            'PrivateVIPPrefix' = $ConfigData.PrivateVIPSubnet;
-            'PublicVIPPrefix' = $ConfigData.PublicVIPSubnet
+        if (![string]::IsNullOrEmpty($ConfigData.PrivateVIPSubnet)) {
+            $params = @{
+                'RestName' = $ConfigData.RestName;
+                'PrivateVIPPrefix' = $ConfigData.PrivateVIPSubnet;
+                'PublicVIPPrefix' = $ConfigData.PublicVIPSubnet
+            }
+
+            New-SDNExpressLoadBalancerManagerConfiguration @Params -Credential $Credential
+        } else {
+            write-SDNExpressLog "VIP subnets not specified in configuration, skipping load balancer manager configuration."
         }
 
-        New-SDNExpressLoadBalancerManagerConfiguration @Params -Credential $Credential
-
-        $params = @{
+        if (![string]::IsNullOrEmpty($ConfigData.PASubnet)) {
+            $params = @{
                 'RestName' = $ConfigData.RestName;
                 'AddressPrefix' = $ConfigData.PASubnet;
                 'VLANID' = $ConfigData.PAVLANID;
                 'DefaultGateways' = $ConfigData.PAGateway;
                 'IPPoolStart' = $ConfigData.PAPoolStart;
                 'IPPoolEnd' = $ConfigData.PAPoolEnd
+            }
+            Add-SDNExpressVirtualNetworkPASubnet @params -Credential $Credential
+        } else {
+            write-SDNExpressLog "PA subnets not specified in configuration, skipping Virtual Network PA configuration."
         }
-        Add-SDNExpressVirtualNetworkPASubnet @params -Credential $Credential
-
     } 
     else 
     {
-        $NCHostCert = get-childitem "cert:\localmachine\root" | where {$_.Subject -eq "CN=$($configdata.RestName)"}
+        $NCHostCert = get-childitem "cert:\localmachine\root" | Where-Object {$_.Subject -eq "CN=$($configdata.RestName)"}
         if ($null -eq $NCHostCert) {
             $ErrorText = "Network Controller cert with CN=$($configdata.RestName) not found on $(hostname) in cert:\localmachine\root"
             write-SDNExpressLog $ErrorText
@@ -306,9 +416,14 @@ try {
     }
 
     write-SDNExpressLog "STAGE 3: Host Configuration"
+    $params = @{}
+
+    if (![string]::IsNullOREmpty($ConfigData.PASubnet)) {
+        $params.HostPASubnetPrefix = $ConfigData.PASubnet;
+    }
 
     foreach ($h in $ConfigData.hypervhosts) {
-        Add-SDNExpressHost -ComputerName $h -RestName $ConfigData.RestName -HostPASubnetPrefix $ConfigData.PASubnet -NCHostCert $NCHostCert -Credential $Credential -VirtualSwitchName $ConfigData.SwitchName
+        Add-SDNExpressHost @params -ComputerName $h -RestName $ConfigData.RestName -NCHostCert $NCHostCert -Credential $Credential -VirtualSwitchName $ConfigData.SwitchName
     }
 
     if ($ConfigData.Muxes.Count -gt 0) {
