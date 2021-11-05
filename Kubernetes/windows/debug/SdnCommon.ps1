@@ -196,9 +196,9 @@ if (-NOT $hnsModFnd)
 }
 
 Write-Verbose "SdnCommon - Importing DebugHelper module."
-Import-Module "$BaseDir\DebugHelper.psm1"
+Import-Module "$BaseDir\DebugHelper.psm1" -Scope Global
 Write-Verbose "SdnCommon - Importing VFP module."
-Import-Module "$BaseDir\VFP.psm1"
+Import-Module "$BaseDir\VFP.psm1" -Scope Global
 
 
 try

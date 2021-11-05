@@ -342,10 +342,9 @@ if (-NOT $NoPrompt.IsPresent)
     if (-NOT $NoLogs.IsPresent)
     {
         Write-Verbose "Trying to run Get-SdnLogs.ps1"
-        $BaseDir = "c:\k\debug"
 
-        # is Get-SdnLogs.ps1 in $baseDir?
-        $isCLFnd = Get-Item "$BaseDir\Get-SdnLogs.ps1" -EA SilentlyContinue
+        # is Get-SdnLogs.ps1 in $script:BaseDir?
+        $isCLFnd = Get-Item "$script:BaseDir\Get-SdnLogs.ps1" -EA SilentlyContinue
 
         if (-NOT $isCLFnd)
         {
@@ -355,7 +354,7 @@ if (-NOT $NoPrompt.IsPresent)
             {
                 #$URLSdnLogs = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/Get-SdnLogs.ps1'
                 $URLSdnLogs = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/Get-SdnLogs.ps1'
-                Get-WebFile -Url $URLSdnLogs -Destination "$BaseDir\Get-SdnLogs.ps1" -Force -EA Stop
+                Get-WebFile -Url $URLSdnLogs -Destination "$script:BaseDir\Get-SdnLogs.ps1" -Force -EA Stop
             }
             catch 
             {
@@ -366,7 +365,7 @@ if (-NOT $NoPrompt.IsPresent)
         # execute Get-SdnLogs.ps1
         Write-Host "Running Get-SdnLogs.ps1."
         # redirecting as much of the collectlog output to the success stream for collection
-        Push-Location $BaseDir
+        Push-Location $script:BaseDir
         .\Get-SdnLogs.ps1
         Pop-Location
     }
