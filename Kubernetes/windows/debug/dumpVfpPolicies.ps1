@@ -3,26 +3,44 @@ param(
    [string]$outfile = "vfprules.txt"
   )
 
-  $env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
-  $GithubSDNRepository = 'Microsoft/SDN/master'
-  
-  if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
+# load SdnCommon
+if (-NOT $script:SdnCommonLoaded)
+{
+  Write-Verbose "dumpVfpPolicies - Loading SdnCommon"
+  # can github be reached?
+  $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
+
+  if ($pngGH)
   {
-	  $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
+      #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+      $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+
+      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
+      Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
   }
 
-$BaseDir = "c:\k\debug"
-mkdir $BaseDir -ErrorAction Ignore
+  $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
+  if ( -NOT $sdncmnFnd)
+  {
+      $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
+      
+      if ( -NOT $sdncmnFnd)
+      {
+          return ( Write-Error "Failed to download or find SdnCommon.ps1." -EA Stop)
+      }
+  }
 
-$helper = "$BaseDir\DebugHelper.psm1"
-if (!(Test-Path $helper))
-{
-    Start-BitsTransfer "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DegubHelper.psm1" -Destination $BaseDir\DebugHelper.psm1
+  Push-Location $sdncmnFnd.Directory
+  if ($pngGH)
+  {
+      . .\SdnCommon.ps1
+  }
+  else
+  {
+      . .\SdnCommon.ps1 -NoInternet
+  }
+  Pop-Location
 }
-Import-Module $helper
-
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/VFP.psm1" -Destination $BaseDir\VFP.psm1
-Import-Module $BaseDir\VFP.psm1
 
 $ports = Get-VfpPorts -SwitchName $switchName
 
