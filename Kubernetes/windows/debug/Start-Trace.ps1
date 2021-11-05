@@ -184,6 +184,7 @@ function Get-WebFile
 # load SdnCommon
 if (-NOT $script:SdnCommonLoaded)
 {
+    Write-Verbose "Start-Trace - Loading SdnCommon"
     # can github be reached?
     $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
