@@ -46,24 +46,29 @@ if (-NOT $script:SdnCommonLoaded)
     Pop-Location
 }
 
+Write-Verbose "Get-SdnLogs - Setting output directory to $script:outDir"
 Push-Location "$script:outDir"
 
 # HNS network details
+Write-Verbose "Get-SdnLogs - Collecting HNS network details"
 Get-HnsNetwork | Select-Object Name, Type, Id, AddressPrefix > hnsnetwork.txt
 Get-HnsNetwork | ConvertTo-Json -Depth 20 > hnsnetwork.json
 Get-HnsNetwork | ForEach-Object { Get-HnsNetwork -Id $_.ID -Detailed } | ConvertTo-Json -Depth 20 > hnsnetworkdetailed.json
 
 # HNS endpoint details
+Write-Verbose "Get-SdnLogs - Collecting HNS endpoint details"
 Get-HnsEndpoint | Select-Object IpAddress, MacAddress, IsRemoteEndpoint, State > hnsendpoint.txt
 Get-HnsEndpoint | ConvertTo-Json -Depth 20 > hnsendpoint.json
 
 # HNS policy details
+Write-Verbose "Get-SdnLogs - Getting HNS policy list"
 Get-HnsPolicyList | ConvertTo-Json -Depth 20 > hnspolicy.json
 
 # get vmSwitch port info
 $vfpctrlFnd = Get-Command vfpctrl.exe -EA SilentlyContinue
 if ($vfpctrlFnd)
 {
+    Write-Verbose "Get-SdnLogs - Getting vmSwitch ports"
     vfpctrl.exe /list-vmswitch-port > VMSports.txt
 }
 else 
@@ -77,11 +82,13 @@ Push-Location $script:BaseDir
 [array]$vmSwitches = Get-VMSwitch -EA SilentlyContinue
 foreach ($vmSwitch in $vmSwitches)
 {
+    Write-Verbose "Get-SdnLogs - Getting policies for vmSwitch $vmSwitch"
     .\dumpVfpPolicies.ps1 -switchName $vmSwitch -outfile "$script:outDir\vfpOutput_$($vmSwitch.Name).txt"
 }
 Pop-Location
 
 # host network configuration
+Write-Verbose "Get-SdnLogs - Collecting host network details"
 ipconfig /allcompartments /all > ip.txt
 Get-NetIPAddress -IncludeAllCompartments | Select-Object IPAddress, InterfaceIndex, InterfaceAlias, AddressFamily, Type, PrefixLength, SkipAsSource >> ip.txt
 
@@ -106,6 +113,7 @@ Get-NetAdapter | ForEach-Object { $_ | Format-List * | Out-File "$($_.Name)_int.
 $res = Get-Command hnsdiag.exe -ErrorAction SilentlyContinue
 if ($res)
 {
+    Write-Verbose "Get-SdnLogs - HNS diag details"
     hnsdiag list all -d > hnsdiag.json
     hnsdiag list adapters *> hnsdiag.adapters.txt
     hcsdiag list  > hcsdiag.txt
@@ -114,9 +122,11 @@ if ($res)
 $res = Get-Command docker.exe -ErrorAction SilentlyContinue
 if ($res)
 {
+    Write-Verbose "Get-SdnLogs - Docker details"
     docker ps -a > docker.txt
 }
 
+Write-Verbose "Get-SdnLogs - Getting ephemeral port details"
 function CountAvailableEphemeralPorts 
 {
     param(
@@ -213,7 +223,7 @@ Get-NetUDPSetting >> dynamicportrange.txt
 netsh int ipv4 sh dynamicportrange TCP >> dynamicportrange.txt
 netsh int ipv4 sh dynamicportrange UDP >> dynamicportrange.txt
 
-
+Write-Verbose "Get-SdnLogs - Connection details"
 "TCP Connections:`n" > tcpconnections.txt
 Get-NetTCPConnection >> tcpconnections.txt
 "`nTCP again, but old school:`n" >> tcpconnections.txt
@@ -222,7 +232,7 @@ netsh int ipv4 sh tcpconnections >> tcpconnections.txt
 "`nUDP Endpoints:`n" >> udpendpoints.txt
 Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess >> udpendpoints.txt
 
-
+Write-Verbose "Get-SdnLogs - System details"
 $ver = [System.Environment]::OSVersion
 $hotFix = Get-HotFix
 
@@ -237,6 +247,7 @@ if ($null -ne $hotFix)
 }
 
 # Copy the Windows event logs
+Write-Verbose "Get-SdnLogs - Collecting logs"
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Application.evtx"
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\System.evtx"
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Hyper-V*.evtx"
