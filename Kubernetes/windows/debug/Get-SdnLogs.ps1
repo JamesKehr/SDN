@@ -72,6 +72,7 @@ else
 }
 
 # dump all VFP policies
+Write-Verbose "BaseDir: $script:BaseDir"
 Push-Location $script:BaseDir
 [array]$vmSwitches = Get-VMSwitch -EA SilentlyContinue
 foreach ($vmSwitch in $vmSwitches)
@@ -200,6 +201,7 @@ if ($availableRangesFor64PortChunks -le 0) {
 
 # The following scripts attempts to reserve a few ranges of 64 ephemeral ports. 
 # Results produced by this test can accurately tell whether a system has room for reserving 64 contiguous port pools or not.
+Write-Verbose "BaseDir: $script:BaseDir"
 & "$script:BaseDir\PortReservationTest.ps1" >> reservedports.txt
 
 netsh int ipv4 sh excludedportrange TCP > excludedportrange.txt
