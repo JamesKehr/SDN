@@ -7,7 +7,7 @@ param()
 
 ##### Setup variables #####
 
-# load SdnCommon
+# load SdnCommon - this is the first step in all debug PowerShell scripts
 if (-NOT $SdnCommonLoaded)
 {
     Write-Verbose "Get-SdnLogs - Loading SdnCommon"
@@ -47,6 +47,9 @@ if (-NOT $SdnCommonLoaded)
 }
 
 Write-Verbose "Get-SdnLogs - Setting output directory to $outDir"
+
+
+## MAIN ##
 Push-Location "$outDir"
 
 # HNS network details

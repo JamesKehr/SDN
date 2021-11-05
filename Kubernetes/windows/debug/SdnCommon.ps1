@@ -1,4 +1,4 @@
-# sets variables needed for SDN/k8s debug scripts.
+# sets common variables and functions needed for SDN/k8s debug scripts.
 
 param(
     [switch]$NoInternet

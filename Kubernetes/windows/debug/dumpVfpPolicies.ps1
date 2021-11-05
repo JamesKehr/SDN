@@ -3,43 +3,43 @@ param(
    [string]$outfile = "vfprules.txt"
   )
 
-# load SdnCommon
+# load SdnCommon - this is the first step in all debug PowerShell scripts
 if (-NOT $SdnCommonLoaded)
 {
-  Write-Verbose "dumpVfpPolicies - Loading SdnCommon"
-  # can github be reached?
-  $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
+    Write-Verbose "Get-SdnLogs - Loading SdnCommon"
+    # can github be reached?
+    $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
-  if ($pngGH)
-  {
-      #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
-      $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+    if ($pngGH)
+    {
+        #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+        $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
 
-      [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
-      Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
-  }
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
+    }
+    
+    $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
+    if ( -NOT $sdncmnFnd)
+    {
+        $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
+        
+        if ( -NOT $sdncmnFnd)
+        {
+            return ( Write-Error "Failed to download or find SdnCommon.ps1." -EA Stop)
+        }
+    }
 
-  $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
-  if ( -NOT $sdncmnFnd)
-  {
-      $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
-      
-      if ( -NOT $sdncmnFnd)
-      {
-          return ( Write-Error "Failed to download or find SdnCommon.ps1." -EA Stop)
-      }
-  }
-
-  Push-Location $sdncmnFnd.Directory
-  if ($pngGH)
-  {
-      & ".\SdnCommon.ps1"
-  }
-  else
-  {
-      & ".\SdnCommon.ps1 -NoInternet"
-  }
-  Pop-Location
+    Push-Location $sdncmnFnd.Directory
+    if ($pngGH)
+    {
+        & ".\SdnCommon.ps1"
+    }
+    else
+    {
+        & ".\SdnCommon.ps1 -NoInternet"
+    }
+    Pop-Location
 }
 
 $ports = Get-VfpPorts -SwitchName $switchName

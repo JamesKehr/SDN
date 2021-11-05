@@ -181,10 +181,10 @@ function Get-WebFile
 ### CONSTANTS and VARIABLES ###
 #region
 
-# load SdnCommon
+# load SdnCommon - this is the first step in all debug PowerShell scripts
 if (-NOT $SdnCommonLoaded)
 {
-    Write-Verbose "Start-Trace - Loading SdnCommon"
+    Write-Verbose "Get-SdnLogs - Loading SdnCommon"
     # can github be reached?
     $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
@@ -193,7 +193,8 @@ if (-NOT $SdnCommonLoaded)
         #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
         $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
 
-        Get-WebFile -Url $cmnURL -Destination "$($PWD.Path)\SdnCommon.ps1" -Force
+        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
+        Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
     }
     
     $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
@@ -217,7 +218,6 @@ if (-NOT $SdnCommonLoaded)
         & ".\SdnCommon.ps1 -NoInternet"
     }
     Pop-Location
-
 }
                         
 # capture name
