@@ -172,7 +172,7 @@ if (-NOT $NoInternet.IsPresent)
         }
         catch
         {
-            Write-Warning "Failed to download file ($tmpURL): $_"
+            return ( Write-Error "Failed to download file ($tmpURL): $_" -EA Stop )
         }
 
         Remove-Variable tmpURL, tmpName -EA SilentlyContinue
@@ -194,6 +194,12 @@ if (-NOT $hnsModFnd)
         return (Write-Error "Failed to import the HNS module: $_" -EA Stop)
     }
 }
+
+Write-Verbose "SdnCommon - Importing DebugHelper module."
+Import-Module "$BaseDir\DebugHelper.psm1"
+Write-Verbose "SdnCommon - Importing VFP module."
+Import-Module "$BaseDir\VFP.psm1"
+
 
 try
 {
