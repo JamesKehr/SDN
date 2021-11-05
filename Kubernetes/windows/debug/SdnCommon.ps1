@@ -7,7 +7,7 @@ param(
 ## FUNCTIONS ##
 #region
 # doownloads files from the Internet
-function Script:Get-WebFile
+function global:Get-WebFile
 {
     param(
         [parameter(Mandatory = $true)] 
@@ -119,22 +119,22 @@ function Get-GithubRepoFiles
 
 Write-Verbose "SdnCommon - Begin"
 Write-Debug "SdnCommon - SdnCommonLoaded = false"
-$script:SdnCommonLoaded = $false
+$global:SdnCommonLoaded = $false
 
 # repo details
 $env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
-$script:GithubSDNRepository = 'Microsoft/SDN/master'
+$global:GithubSDNRepository = 'Microsoft/SDN/master'
 
 if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
 {
     Write-Verbose "SdnCommon - Set repo to env:GITHUB_SDN_REPOSITORY: $env:GITHUB_SDN_REPOSITORY"
-    $script:GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
+    $global:GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
 }
-Write-Verbose "SdnCommon - Repo: $script:GithubSDNRepository"
+Write-Verbose "SdnCommon - Repo: $global:GithubSDNRepository"
 
 # default file download location
-$script:BaseDir = "C:\k\debug"
-Write-Debug "SdnCommon - BaseDir: $script:BaseDir"
+$global:BaseDir = "C:\k\debug"
+Write-Debug "SdnCommon - BaseDir: $global:BaseDir"
 
 # make sure BaseDir exists
 try 
@@ -155,20 +155,20 @@ if (-NOT $NoInternet.IsPresent)
 {
     # download all the debug files to BaseDir
     Write-Verbose "SdnCommon - Qurying "
-    #$files = Get-GithubRepoFiles -repo $script:GithubSDNRepository -pathFilter "Kubernetes/windows/debug"
+    #$files = Get-GithubRepoFiles -repo $global:GithubSDNRepository -pathFilter "Kubernetes/windows/debug"
     $files = Get-GithubRepoFiles -repo "JamesKehr\SDN" -branch "collectlogs_update" -pathFilter "Kubernetes/windows/debug"
 
     Write-Verbose "SdnCommon - Downloading supporting files to $BaseDir"
     foreach ($file in $files)
     {    
-        $tmpURL = "https://raw.githubusercontent.com/$script:GithubSDNRepository/$($file.path)"
+        $tmpURL = "https://raw.githubusercontent.com/$global:GithubSDNRepository/$($file.path)"
         $tmpName = Split-Path $file.path -Leaf
 
         Write-Verbose "SdnCommon - Downloading $tmpName from $tmpUrl."
 
         try
         {
-            Get-WebFile -Url $tmpURL -Destination "$script:BaseDir\$tmpName" -Force
+            Get-WebFile -Url $tmpURL -Destination "$global:BaseDir\$tmpName" -Force
         }
         catch
         {
@@ -204,27 +204,27 @@ Import-Module "$BaseDir\VFP.psm1" -Scope Global
 try
 {
     # this will fail if executing the script directly from github...
-    [string]$script:ScriptPath = Split-Path $MyInvocation.MyCommand.Path -EA Stop
+    [string]$global:ScriptPath = Split-Path $MyInvocation.MyCommand.Path -EA Stop
 }
 catch
 {
     # ...set scriptpath to present working directory when that happens
-    [string]$script:ScriptPath = $PWD.Path
+    [string]$global:ScriptPath = $PWD.Path
 }
-Write-Verbose "SdnCommon - ScriptPath: $script:ScriptPath"
+Write-Verbose "SdnCommon - ScriptPath: $global:ScriptPath"
 
 #$outDir = [io.Path]::Combine($ScriptPath, [io.Path]::GetRandomFileName())
-$script:outDir = "$script:ScriptPath\SdnLogs_$env:COMPUTERNAME_$(Get-Date -Format "yyyyMMdd_HHmmss")"
+$global:outDir = "$global:ScriptPath\SdnLogs_$env:COMPUTERNAME_$(Get-Date -Format "yyyyMMdd_HHmmss")"
 
 try
 {
-    $null = mkdir "$script:outDir" -Force -EA Stop
+    $null = mkdir "$global:outDir" -Force -EA Stop
 }
 catch
 {
-    return ( Write-Error "Failed to create the output directory. Please verify user permissions to the $script:ScriptPath directory. Error: $_" -EA Stop )
+    return ( Write-Error "Failed to create the output directory. Please verify user permissions to the $global:ScriptPath directory. Error: $_" -EA Stop )
 }
 
 
 Write-Debug "SdnCommon - Reached the end without ciritcal error. SdnCommonLoaded = true"
-$script:SdnCommonLoaded = $true
+$global:SdnCommonLoaded = $true

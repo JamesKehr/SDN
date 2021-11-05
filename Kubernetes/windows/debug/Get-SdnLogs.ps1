@@ -8,7 +8,7 @@ param()
 ##### Setup variables #####
 
 # load SdnCommon
-if (-NOT $script:SdnCommonLoaded)
+if (-NOT $SdnCommonLoaded)
 {
     Write-Verbose "Get-SdnLogs - Loading SdnCommon"
     # can github be reached?
@@ -46,8 +46,8 @@ if (-NOT $script:SdnCommonLoaded)
     Pop-Location
 }
 
-Write-Verbose "Get-SdnLogs - Setting output directory to $script:outDir"
-Push-Location "$script:outDir"
+Write-Verbose "Get-SdnLogs - Setting output directory to $outDir"
+Push-Location "$outDir"
 
 # HNS network details
 Write-Verbose "Get-SdnLogs - Collecting HNS network details"
@@ -77,13 +77,13 @@ else
 }
 
 # dump all VFP policies
-Write-Verbose "BaseDir: $script:BaseDir"
-Push-Location $script:BaseDir
+Write-Verbose "BaseDir: $BaseDir"
+Push-Location $BaseDir
 [array]$vmSwitches = Get-VMSwitch -EA SilentlyContinue
 foreach ($vmSwitch in $vmSwitches)
 {
     Write-Verbose "Get-SdnLogs - Getting policies for vmSwitch $vmSwitch"
-    .\dumpVfpPolicies.ps1 -switchName $vmSwitch -outfile "$script:outDir\vfpOutput_$($vmSwitch.Name).txt"
+    .\dumpVfpPolicies.ps1 -switchName $vmSwitch -outfile "$outDir\vfpOutput_$($vmSwitch.Name).txt"
 }
 Pop-Location
 
@@ -211,8 +211,8 @@ if ($availableRangesFor64PortChunks -le 0) {
 
 # The following scripts attempts to reserve a few ranges of 64 ephemeral ports. 
 # Results produced by this test can accurately tell whether a system has room for reserving 64 contiguous port pools or not.
-Write-Verbose "BaseDir: $script:BaseDir"
-& "$script:BaseDir\PortReservationTest.ps1" >> reservedports.txt
+Write-Verbose "BaseDir: $BaseDir"
+& "$BaseDir\PortReservationTest.ps1" >> reservedports.txt
 
 netsh int ipv4 sh excludedportrange TCP > excludedportrange.txt
 netsh int ipv4 sh excludedportrange UDP >> excludedportrange.txt
@@ -254,4 +254,4 @@ Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Hyper
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Host-Network-Service*.evtx"
 
 Pop-Location
-Write-Host "Logs are available at $script:outDir"
+Write-Host "Logs are available at $outDir"

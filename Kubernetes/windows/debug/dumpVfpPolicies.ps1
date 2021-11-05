@@ -4,7 +4,7 @@ param(
   )
 
 # load SdnCommon
-if (-NOT $script:SdnCommonLoaded)
+if (-NOT $SdnCommonLoaded)
 {
   Write-Verbose "dumpVfpPolicies - Loading SdnCommon"
   # can github be reached?
