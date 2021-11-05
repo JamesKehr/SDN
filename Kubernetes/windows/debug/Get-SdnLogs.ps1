@@ -228,7 +228,36 @@ netsh int ipv4 sh dynamicportrange UDP >> dynamicportrange.txt
 
 Write-Verbose "Get-SdnLogs - Connection details"
 "TCP Connections:`n" > tcpconnections.txt
-Get-NetTCPConnection >> tcpconnections.txt
+#Get-NetTCPConnection >> tcpconnections.txt
+
+# Gets the TCP connections and attach the process name
+$processes = Get-Process | Select-Object Id, ProcessName, Name
+$serviceList = Get-WmiObject -Class Win32_Service | Select-Object ProcessId, Name
+$netConn = Get-NetTCPConnection | Select-Object LocalAddress,LocalPort,RemoteAddress,RemotePort,State,AppliedSetting,OwningProcess
+$netConn | Add-Member -MemberType NoteProperty -Name ProcessName -Value "Not found"
+
+foreach ($conn in $netConn)
+{
+
+    # get the process details
+    $tmpProcess = $processes | & { process {if ($_.Id -eq $conn.OwningProcess) { $_ }}}
+
+    # resolve the services if this is a svchost
+    if ($tmpProcess.Name -eq 'svchost')
+    {
+        $svchost = ($serviceList | & { process {if ($_.ProcessId -eq $conn.OwningProcess) { $_ } }} | & {process {$_.Name}}) -join ','
+        $conn.ProcessName = "$($tmpProcess.ProcessName) `($svchost`)"
+    }else
+    {            
+        $conn.ProcessName = $tmpProcess.ProcessName
+    }
+
+    $tmpProcess = $null
+    $svchost = $null
+}
+
+$netConn | Format-List -Property LocalAddress,LocalPort,RemoteAddress,RemotePort,State,AppliedSetting,OwningProcess,ProcessName >> tcpconnections.txt
+
 "`nTCP again, but old school:`n" >> tcpconnections.txt
 netsh int ipv4 sh tcpconnections >> tcpconnections.txt
 
