@@ -37,11 +37,11 @@ if (-NOT $script:SdnCommonLoaded)
     Push-Location $sdncmnFnd.Directory
     if ($pngGH)
     {
-        . .\SdnCommon.ps1
+        & ".\SdnCommon.ps1"
     }
     else
     {
-        . .\SdnCommon.ps1 -NoInternet
+        & ".\SdnCommon.ps1 -NoInternet"
     }
     Pop-Location
 
