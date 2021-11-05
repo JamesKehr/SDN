@@ -97,32 +97,6 @@ function Get-WebFile
 $providerFilename = "PROVIDERS_HnsTrace.json"
 
 
-$env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
-$GithubSDNRepository = 'Microsoft/SDN/master'
-
-if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
-{
-    $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
-}
-
-# default file download location
-$BaseDir = "C:\k\debug"
-
-
-##### Do prep work #####
-
-try 
-{
-    if (-NOT (Test-Path "$BaseDir" -EA Stop))
-    {
-        $null = mkdir $BaseDir -Force -ErrorAction Stop
-    }
-}
-catch 
-{
-    return ( Write-Error "Failed to create the base directory, $BaseDir. Please verify user permissions to the C: drive. Error: $_" -EA Stop )
-}
-
 # support files needed to start trace
 if ($NoInternet.IsPresent)
 {

@@ -175,13 +175,49 @@ function Get-WebFile
     }
 }
 
-
 #endregion CLASSES and FUNCTIONS
 
 
 ### CONSTANTS and VARIABLES ###
 #region
 
+# load SdnCommon
+if (-NOT $script:SdnCommonLoaded)
+{
+    # can github be reached?
+    $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
+
+    if ($pngGH)
+    {
+        #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+        $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+
+        Get-WebFile -Url $cmnURL -Destination "$($PWD.Path)\SdnCommon.ps1" -Force
+    }
+    
+    $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
+    if ( -NOT $sdncmnFnd)
+    {
+        $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
+        
+        if ( -NOT $sdncmnFnd)
+        {
+            return ( Write-Error "Failed to download or find SdnCommon.ps1." -EA Stop)
+        }
+    }
+
+    Push-Location $sdncmnFnd.Directory
+    if ($pngGH)
+    {
+        . .\SdnCommon.ps1
+    }
+    else
+    {
+        . .\SdnCommon.ps1 -NoInternet
+    }
+    Pop-Location
+
+}
                         
 # capture name
 $sessionName = 'HnsCapture'

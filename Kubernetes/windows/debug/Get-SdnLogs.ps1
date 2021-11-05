@@ -7,94 +7,42 @@ param()
 
 ##### Setup variables #####
 
-$env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
-$GithubSDNRepository = 'Microsoft/SDN/master'
-
-if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
+# load SdnCommon
+if (-NOT $script:SdnCommonLoaded)
 {
-    $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
-}
+    # can github be reached?
+    $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
-$BaseDir = "C:\k\debug"
-$helper = "$BaseDir\DebugHelper.psm1"
-
-# pwsh 5 or 7?
-$pwshVer = $host.Version.Major
-
-
-##### Do work #####
-
-try 
-{
-    if (-NOT (Test-Path "$BaseDir" -EA Stop))
+    if ($pngGH)
     {
-        $null = mkdir $BaseDir -Force -ErrorAction Stop
+        #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+        $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+
+        Get-WebFile -Url $cmnURL -Destination "$($PWD.Path)\SdnCommon.ps1" -Force
     }
-}
-catch 
-{
-    return ( Write-Error "Failed to create the base directory, $BaseDir. Please verify user permissions to the C: drive. Error: $_" -EA Stop )
-}
-
-
-# newer versions of pwsh support -UseBasicParsing, but leaving this here in case someone hasn't updated in a while
-if (-NOT (Test-Path $helper))
-{
-    switch ($pwshVer)
+    
+    $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
+    if ( -NOT $sdncmnFnd)
     {
-        5 { Invoke-WebRequest -UseBasicParsing "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
-        7 { Invoke-WebRequest "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DebugHelper.psm1" -OutFile "$BaseDir\DebugHelper.psm1" }
+        $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
+        
+        if ( -NOT $sdncmnFnd)
+        {
+            return ( Write-Error "Failed to download or find SdnCommon.ps1." -EA Stop)
+        }
     }
-}
 
-try 
-{
-    $null = Import-Module -Name "$BaseDir\DebugHelper.psm1" -Verbose -EA Stop
-}
-catch 
-{
-    return (Write-Error "Could not load helper file: $_" -EA Stop)
-}
+    Push-Location $sdncmnFnd.Directory
+    if ($pngGH)
+    {
+        . .\SdnCommon.ps1
+    }
+    else
+    {
+        . .\SdnCommon.ps1 -NoInternet
+    }
+    Pop-Location
 
-
-# support files that need to be downloaded
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/dumpVfpPolicies.ps1" -Destination $BaseDir\dumpVfpPolicies.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/hns.psm1" -Destination $BaseDir\hns.psm1 -Force
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/starthnstrace.cmd" -Destination $BaseDir\starthnstrace.cmd
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/Start-HnsTrace.ps1" -Destination $BaseDir\Start-HnsTrace.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/startpacketcapture.cmd" -Destination $BaseDir\startpacketcapture.cmd
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/Start-HnsPacketCap.ps1" -Destination $BaseDir\Start-HnsPacketCap.ps1
-Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/portReservationTest.ps1" -Destination $BaseDir\portReservationTest.ps1
-
-# import the HNS module if it's not already installed
-$hnsModFnd = Get-Command Get-HnsNetwork -EA SilentlyContinue
-if (-NOT $hnsModFnd)
-{
-    Import-Module $BaseDir\hns.psm1
-}
-
-try
-{
-    # this will fail if executing the script directly from github...
-    [string]$ScriptPath = Split-Path $MyInvocation.MyCommand.Path -EA Stop
-}
-catch
-{
-    # ...set scriptpath to present working directory when that happens
-    [string]$ScriptPath = $PWD.Path
-}
-
-
-#$outDir = [io.Path]::Combine($ScriptPath, [io.Path]::GetRandomFileName())
-$outDir = "$ScriptPath\SdnLogs_$env:COMPUTERNAME_$(Get-Date -Format "yyyyMMdd_HHmmss")"
-
-try
-{
-    $null = mkdir "$outDir" -Force -EA Stop
-}
-catch
-{
-    return ( Write-Error "Failed to create the output directory. Please verify user permissions to the $ScriptPath directory. Error: $_" -EA Stop )
 }
 
 Push-Location "$outDir"

@@ -3,35 +3,37 @@ param(
    [string]$outfile = "vfprules.txt"
   )
 
-$GithubSDNRepository = 'Microsoft/SDN'
-if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
-{
-    $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
-}
+  $env:GITHUB_SDN_REPOSITORY = 'JamesKehr/SDN/collectlogs_update'
+  $GithubSDNRepository = 'Microsoft/SDN/master'
+  
+  if ((Test-Path env:GITHUB_SDN_REPOSITORY) -and ($env:GITHUB_SDN_REPOSITORY -ne ''))
+  {
+	  $GithubSDNRepository = $env:GITHUB_SDN_REPOSITORY
+  }
 
 $BaseDir = "c:\k\debug"
-md $BaseDir -ErrorAction Ignore
+mkdir $BaseDir -ErrorAction Ignore
 
-$helper = "$BaseDir\helper.psm1"
+$helper = "$BaseDir\DebugHelper.psm1"
 if (!(Test-Path $helper))
 {
-    Start-BitsTransfer "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/helper.psm1" -Destination $BaseDir\helper.psm1
+    Start-BitsTransfer "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/DegubHelper.psm1" -Destination $BaseDir\DebugHelper.psm1
 }
-ipmo $helper
+Import-Module $helper
 
-DownloadFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/master/Kubernetes/windows/debug/VFP.psm1" -Destination $BaseDir\VFP.psm1
-ipmo $BaseDir\VFP.psm1
+Get-WebFile -Url "https://raw.githubusercontent.com/$GithubSDNRepository/Kubernetes/windows/debug/VFP.psm1" -Destination $BaseDir\VFP.psm1
+Import-Module $BaseDir\VFP.psm1
 
 $ports = Get-VfpPorts -SwitchName $switchName
 
 # Dump the port info
-$ports | select 'Port name', 'Mac Address', 'PortId' | Out-File $outfile -Encoding ascii -Append
+$ports | Select-Object 'Port name', 'Mac Address', 'PortId' | Out-File $outfile -Encoding ascii -Append
 
 $vfpCtrlExe = "vfpctrl.exe"
 
 foreach ($port in $ports) {
 	$portGuid = $port.'Port name'
-	echo "Policy for port : " $portGuid  | Out-File $outfile -Encoding ascii -Append
+	Write-Host "Policy for port : " $portGuid  | Out-File $outfile -Encoding ascii -Append
 	& $vfpCtrlExe /list-space  /port $portGuid | Out-File $outfile -Encoding ascii -Append
 	& $vfpCtrlExe /list-mapping  /port $portGuid | Out-File $outfile -Encoding ascii -Append
 	& $vfpCtrlExe /list-rule  /port $portGuid | Out-File $outfile -Encoding ascii -Append
