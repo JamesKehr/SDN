@@ -137,7 +137,7 @@ else
 
 $paramSplat = @{
     ProviderFile = "$BaseDir\$providerFilename"
-    EtlFile      = $EtlFile
+    EtlFile      = $EtlFilename
     snapLen      = $snapLen
     maxFileSize  = $maxFileSize
     NoPrompt     = $NoPrompt
