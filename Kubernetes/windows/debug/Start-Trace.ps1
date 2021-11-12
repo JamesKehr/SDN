@@ -229,7 +229,7 @@ $sessionName = 'HnsCapture'
 ### MAIN ###
 
 # where the ETL goes
-$EtlFile = "$global:ScriptPath\$EtlFilename"
+$EtlFile = "$global:OutDir\$EtlFilename"
 
 # check if running as Administrator since this can be run directly from the web
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
