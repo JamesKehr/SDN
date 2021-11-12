@@ -29,6 +29,11 @@ param
     $NoInternet
 )
 
+## CONSTANTS ##
+# look for the provider file
+$providerFilename = "PROVIDERS_HnsTrace.json"
+
+
 ## FUNCTIONS ##
 
 # load SdnCommon - this is the first step in all debug PowerShell scripts
@@ -71,9 +76,7 @@ if (-NOT $SdnCommonLoaded)
 }
 
 
-## CONSTANTS ##
-# look for the provider file
-$providerFilename = "PROVIDERS_HnsTrace.json"
+
 
 
 # support files needed to start trace
