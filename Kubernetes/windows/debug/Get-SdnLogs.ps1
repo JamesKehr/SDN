@@ -256,12 +256,10 @@ foreach ($conn in $netConn)
     $svchost = $null
 }
 
-$netConn | Format-Table -AutoSize -Property LocalAddress,LocalPort,RemoteAddress,RemotePort,State,AppliedSetting,OwningProcess,ProcessName >> tcpconnections.txt
+$netConn | Format-List -Property LocalAddress,LocalPort,RemoteAddress,RemotePort,State,AppliedSetting,OwningProcess,ProcessName >> tcpconnections.txt
 
 "`nTCP again, but old school:`n" >> tcpconnections.txt
 netsh int ipv4 sh tcpconnections >> tcpconnections.txt
-
-$netConn | Format-List -Property LocalAddress,LocalPort,RemoteAddress,RemotePort,State,AppliedSetting,OwningProcess,ProcessName >> tcpconnections.txt
 
 "`nUDP Endpoints:`n" >> udpendpoints.txt
 Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess >> udpendpoints.txt
