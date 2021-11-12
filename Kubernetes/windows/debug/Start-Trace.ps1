@@ -286,6 +286,7 @@ Remove-NetEventSession $sessionName -ErrorAction Ignore | Out-Null
 try
 {
     Write-Verbose "Creating the $sessionName capture session."
+    Write-Debug "maxFileSize: $maxFileSize`tEtlFile: $EtlFile"
     New-NetEventSession $sessionName -CaptureMode SaveToFile -MaxFileSize $maxFileSize -LocalFilePath $EtlFile -EA Stop | Out-Null
 }
 catch
