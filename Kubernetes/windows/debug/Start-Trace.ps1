@@ -7,7 +7,7 @@ param
 
     # Path with filename where the ETL file will be saved. Format: <path>\<filename>.etl
     [string]
-    $EtlFile = "C:\server.etl",
+    $EtlFilename = "server.etl",
 
     # How many bytes of the packet to collect. Default is 256 bytes to collect encapsulated headers.
     [int]
@@ -227,6 +227,9 @@ $sessionName = 'HnsCapture'
 
 
 ### MAIN ###
+
+# where the ETL goes
+$EtlFile = "$global:ScriptPath\$EtlFilename"
 
 # check if running as Administrator since this can be run directly from the web
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
