@@ -228,6 +228,15 @@ $sessionName = 'HnsCapture'
 
 ### MAIN ###
 
+# check if running as Administrator since this can be run directly from the web
+$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+if (-NOT ($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)))
+{
+    return (Write-Error "The script must be run as Administrator." -EA Stop)
+}
+
+
+
 # collect providers from file
 $Providers = New-Object System.Collections.ArrayList
 [System.Collections.ArrayList]$rawProviders = Get-Content $ProviderFile -Force | ConvertFrom-Json -Depth 10
