@@ -40,21 +40,25 @@ $providerFilename = "PROVIDERS_HnsTrace.json"
 if (-NOT $SdnCommonLoaded)
 {
     Write-Verbose "Get-SdnLogs - Loading SdnCommon"
-    # can github be reached?
-    $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
-
-    if ($pngGH)
+    if (-NOT $NoInternet.IsPresent)
     {
-        #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
-        $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+        # can github be reached?
+        $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
-        Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
+        if ($pngGH)
+        {
+            #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+            $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
+            Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
+        }
     }
     
     $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
     if ( -NOT $sdncmnFnd)
     {
+        # check default script location
         $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
         
         if ( -NOT $sdncmnFnd)
@@ -64,27 +68,28 @@ if (-NOT $SdnCommonLoaded)
     }
 
     Push-Location $sdncmnFnd.Directory
-    if ($pngGH)
+    if ($pngGH -or -NOT $NoInternet.IsPresent)
     {
-        & ".\SdnCommon.ps1"
+        .\SdnCommon.ps1
     }
     else
     {
-        & ".\SdnCommon.ps1 -NoInternet"
+        .\SdnCommon.ps1 -NoInternet
     }
     Pop-Location
 }
 
-
-
-
-
 # support files needed to start trace
 if ($NoInternet.IsPresent)
 {
+    if (-NOT $Global:BaseDir)
+    {
+        $Global:BaseDir = "C:\k\debug"
+    }
+
     # look for the required files in BaseDir
-    $traceFnd = Get-Item "$BaseDir\Start-Trace.ps1" -EA SilentlyContinue
-    $provFnd = Get-Item "$BaseDir\$providerFilename" -EA SilentlyContinue
+    $traceFnd = Get-Item "$Global:BaseDir\Start-Trace.ps1" -EA SilentlyContinue
+    $provFnd = Get-Item "$Global:BaseDir\$providerFilename" -EA SilentlyContinue
 
     if (-NOT $traceFnd -and -NOT $provFnd)
     {
@@ -94,7 +99,7 @@ if ($NoInternet.IsPresent)
 
         if ($traceFnd -and $provFnd)
         {
-            $BaseDir = $PWD.Path
+            $Global:BaseDir = $PWD.Path
         }
         else 
         {
@@ -106,16 +111,16 @@ if ($NoInternet.IsPresent)
                 
                 if ($traceFnd -and $provFnd)
                 {
-                    $BaseDir = $PSScriptRoot
+                    $Global:BaseDir = $PSScriptRoot
                 }
                 else 
                 {
-                    return ( Write-Error "Failed to find the requierd trace files when -NoInternet is set." -EA Stop )
+                    return ( Write-Error "Failed to find the requierd trace files while -NoInternet is set." -EA Stop )
                 }
             }
             else 
             {
-                return ( Write-Error "Failed to find the requierd trace files when -NoInternet is set." -EA Stop )
+                return ( Write-Error "Failed to find the requierd trace files and -NoInternet is set." -EA Stop )
             }
         }
     }

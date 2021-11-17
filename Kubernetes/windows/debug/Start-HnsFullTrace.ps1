@@ -40,21 +40,25 @@ $providerFilename = "PROVIDERS_HnsFullTrace.json"
 if (-NOT $SdnCommonLoaded)
 {
     Write-Verbose "Get-SdnLogs - Loading SdnCommon"
-    # can github be reached?
-    $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
-
-    if ($pngGH)
+    if (-NOT $NoInternet.IsPresent)
     {
-        #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
-        $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+        # can github be reached?
+        $pngGH = Test-NetConnection github.com -Port 443 -InformationLevel Quiet -EA SilentlyContinue
 
-        [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
-        Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
+        if ($pngGH)
+        {
+            #$cmnURL = 'https://raw.githubusercontent.com/microsoft/SDN/master/Kubernetes/windows/debug/SdnCommon.ps1'
+            $cmnURL = 'https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_update/Kubernetes/windows/debug/SdnCommon.ps1'
+
+            [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.SecurityProtocolType]::Tls12, [System.Net.SecurityProtocolType]::Tls13
+            Invoke-WebRequest $cmnURL -OutFile "$($PWD.Path)\SdnCommon.ps1" -UseBasicParsing
+        }
     }
     
     $sdncmnFnd = Get-Item "$($PWD.Path)\SdnCommon.ps1" -EA SilentlyContinue
     if ( -NOT $sdncmnFnd)
     {
+        # check default script location
         $sdncmnFnd = Get-Item "C:\k\debug\SdnCommon.ps1" -EA SilentlyContinue
         
         if ( -NOT $sdncmnFnd)
@@ -64,16 +68,17 @@ if (-NOT $SdnCommonLoaded)
     }
 
     Push-Location $sdncmnFnd.Directory
-    if ($pngGH)
+    if ($pngGH -or -NOT $NoInternet.IsPresent)
     {
-        & ".\SdnCommon.ps1"
+        .\SdnCommon.ps1
     }
     else
     {
-        & ".\SdnCommon.ps1 -NoInternet"
+        .\SdnCommon.ps1 -NoInternet
     }
     Pop-Location
 }
+
 
 
 # support files needed to start trace
