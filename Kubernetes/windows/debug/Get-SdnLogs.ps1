@@ -136,7 +136,7 @@ Get-NetAdapter -IncludeHidden  | & { process {
         $ifName = $_.Name
         $fileName = "${ifName}_int.txt"
         $fileName = [RegEx]::Replace($fileName, "[$invalidChars]", '_')
-        Get-NetIPInterface -InterfaceIndex 1 $ifindex | Format-List * | Out-File -FilePath "adapters\$fileName" -Encoding ascii
+        Get-NetIPInterface -InterfaceIndex $ifindex | Format-List * | Out-File -FilePath "adapters\$fileName" -Encoding ascii
         $_ | Format-List * | Out-File -Append -FilePath "adapters\$fileName" -Encoding ascii
     }
 }
