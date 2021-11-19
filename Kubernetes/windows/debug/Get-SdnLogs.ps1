@@ -131,12 +131,18 @@ New-Item -Path adapters -ItemType Directory
 $arrInvalidChars = [System.IO.Path]::GetInvalidFileNameChars()
 $invalidChars = [RegEx]::Escape(-join $arrInvalidChars)
 
-Get-NetAdapter -IncludeHidden  | & { process {
+Get-NetAdapter -IncludeHidden -IncludeAllCompartments  | & { process {
         $ifindex = $_.IfIndex
-        $ifName = $_.Name
+        $ifName = $_.InterfaceAlias
         $fileName = "${ifName}_int.txt"
         $fileName = [RegEx]::Replace($fileName, "[$invalidChars]", '_')
-        Get-NetIPInterface -InterfaceIndex $ifindex | Format-List * | Out-File -FilePath "adapters\$fileName" -Encoding ascii
+
+        $fndIpInt = Get-NetIPInterface -InterfaceIndex $ifindex -EA SilentlyContinue
+        if ($fndIpInt)
+        {
+            Get-NetIPInterface -InterfaceIndex $ifindex | Format-List * | Sort-Object AddressFamily | Out-File -FilePath "adapters\$fileName" -Encoding ascii
+        }
+        
         $_ | Format-List * | Out-File -Append -FilePath "adapters\$fileName" -Encoding ascii
     }
 }
@@ -308,6 +314,7 @@ if ($null -ne $hotFix)
 
 # Copy the Windows event logs
 Write-Verbose "Get-SdnLogs - Collecting logs"
+$ErrorActionPreference = "SilentlyContinue"
 New-Item -Path winevt -ItemType Directory
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Application.evtx" -Destination winevt
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\System.evtx" -Destination winevt
