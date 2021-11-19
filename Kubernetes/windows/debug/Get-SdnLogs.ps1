@@ -106,6 +106,8 @@ Get-NetAdapter | Select-Object Name, InterfaceDescription, InterfaceIndex | Form
 Get-NetRoute -IncludeAllCompartments | Select-Object ifIndex, DestinationPrefix, NextHop, RouteMetric, @{Name="ifMetric"; Expression={$_.InterfaceMetric}}, @{Name="TotalMetric"; Expression={ ($_.RouteMetric + $_.InterfaceMetric) }} | Sort-Object -Property IfIndex | Format-Table -AutoSize >> routes.txt
 route print >> routes.txt
 
+Get-NetFirewallRule -PolicyStore ActiveStore >> firewall.txt
+
 Get-NetIPInterface > mtu.txt
 netsh int ipv4 sh int >> mtu.txt
 
@@ -116,9 +118,28 @@ Get-NetAdapter | Select-Object Name, InterfaceDescription, InterfaceIndex | Form
 Get-NetNeighbor -IncludeAllCompartments >> arp.txt
 arp -a >> arp.txt
 
-#Get-NetAdapter | ForEach-Object {$ifindex=$_.IfIndex; $ifName=$_.Name; netsh int ipv4 sh int $ifindex | Out-File  -FilePath "${ifName}_int.txt" -Encoding ascii}
-Get-NetAdapter | ForEach-Object { $_ | Format-List * | Out-File "$($_.Name)_int.txt" -Encoding ascii }
+# export services
+sc.exe queryex > scqueryex.txt
+sc.exe qc hns >> scqueryex.txt
+sc.exe qc vfpext >> scqueryex.txt
 
+#Get-NetAdapter | ForEach-Object {$ifindex=$_.IfIndex; $ifName=$_.Name; netsh int ipv4 sh int $ifindex | Out-File  -FilePath "${ifName}_int.txt" -Encoding ascii}
+#Get-NetAdapter | ForEach-Object { $_ | Format-List * | Out-File "$($_.Name)_int.txt" -Encoding ascii }
+Get-NetAdapter -IncludeHidden >> netadapter.txt
+
+New-Item -Path adapters -ItemType Directory
+$arrInvalidChars = [System.IO.Path]::GetInvalidFileNameChars()
+$invalidChars = [RegEx]::Escape(-join $arrInvalidChars)
+
+Get-NetAdapter -IncludeHidden  | & { process {
+        $ifindex = $_.IfIndex
+        $ifName = $_.Name
+        $fileName = "${ifName}_int.txt"
+        $fileName = [RegEx]::Replace($fileName, "[$invalidChars]", '_')
+        Get-NetIPInterface -InterfaceIndex 1 $ifindex | Format-List * | Out-File -FilePath "adapters\$fileName" -Encoding ascii
+        $_ | Format-List * | Out-File -Append -FilePath "adapters\$fileName" -Encoding ascii
+    }
+}
 
 $res = Get-Command hnsdiag.exe -ErrorAction SilentlyContinue
 if ($res)
@@ -287,10 +308,17 @@ if ($null -ne $hotFix)
 
 # Copy the Windows event logs
 Write-Verbose "Get-SdnLogs - Collecting logs"
-Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Application.evtx"
-Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\System.evtx"
-Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Hyper-V*.evtx"
-Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Host-Network-Service*.evtx"
+New-Item -Path winevt -ItemType Directory
+Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Application.evtx" -Destination winevt
+Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\System.evtx" -Destination winevt
+Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\\Microsoft-Windows-Hyper-V*.evtx" -Destination winevt
+Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Host-Network-Service*.evtx" -Destination winevt
+
+# get logs
+New-Item -Path logs -ItemType Directory
+Copy-Item "$env:SystemDrive\Windows\logs\NetSetup" -Destination logs -Recurse
+Copy-Item "$env:SystemDrive\Windows\logs\dism" -Destination logs -Recurse
+Copy-Item "$env:SystemDrive\Windows\logs\cbs" -Destination logs -Recurse
 
 Pop-Location
 Write-Host "Logs are available at $outDir"
