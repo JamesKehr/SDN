@@ -131,7 +131,7 @@ New-Item -Path adapters -ItemType Directory
 $arrInvalidChars = [System.IO.Path]::GetInvalidFileNameChars()
 $invalidChars = [RegEx]::Escape(-join $arrInvalidChars)
 
-Get-NetAdapter -IncludeHidden -IncludeAllCompartments  | & { process {
+Get-NetAdapter -IncludeHidden | & { process {
         $ifindex = $_.IfIndex
         $ifName = $_.InterfaceAlias
         $fileName = "${ifName}_int.txt"
