@@ -74,10 +74,16 @@ CD C:\k\debug
    - The -NoInternet parameter should be used when the system has no Internet connectivity, but is optional on systems with access.
 
 **HNS Trace**
+```PowerShell
 .\Start-HnsTrace.ps1 [-NoInternet]
+```
 
 **HNS Full Trace**
+```PowerShell
 .\Start-HnsFullTrace.ps1 [-NoInternet]
+```
 
 **SDN Logs**
+```PowerShell
 .\Get-SdnLogs.ps1 [-NoInternet]
+```
