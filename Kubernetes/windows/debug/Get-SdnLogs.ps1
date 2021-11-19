@@ -272,7 +272,6 @@ $netConn | Add-Member -MemberType NoteProperty -Name ProcessName -Value "Not fou
 
 foreach ($conn in $netConn)
 {
-
     # get the process details
     $tmpProcess = $processes | & { process {if ($_.Id -eq $conn.OwningProcess) { $_ }}}
 
@@ -296,7 +295,30 @@ $netConn | Format-List -Property LocalAddress,LocalPort,RemoteAddress,RemotePort
 netsh int ipv4 sh tcpconnections >> tcpconnections.txt
 
 "`nUDP Endpoints:`n" >> udpendpoints.txt
-Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess >> udpendpoints.txt
+$udpConn = Get-NetUDPEndpoint | Select-Object LocalAddress, LocalPort, OwningProcess
+$udpConn | Add-Member -MemberType NoteProperty -Name ProcessName -Value "Not found"
+
+foreach ($conn in $udpConn)
+{
+    # get the process details
+    $tmpProcess = $processes | & { process {if ($_.Id -eq $conn.OwningProcess) { $_ }}}
+
+    # resolve the services if this is a svchost
+    if ($tmpProcess.Name -eq 'svchost')
+    {
+        $svchost = ($serviceList | & { process {if ($_.ProcessId -eq $conn.OwningProcess) { $_ } }} | & {process {$_.Name}}) -join ','
+        $conn.ProcessName = "$($tmpProcess.ProcessName) `($svchost`)"
+    }else
+    {            
+        $conn.ProcessName = $tmpProcess.ProcessName
+    }
+
+    $tmpProcess = $null
+    $svchost = $null
+}
+
+$udpConn | Format-List >> udpendpoints.txt
+
 
 Write-Verbose "Get-SdnLogs - System details"
 $ver = [System.Environment]::OSVersion
