@@ -127,7 +127,7 @@ sc.exe qc vfpext >> scqueryex.txt
 #Get-NetAdapter | ForEach-Object { $_ | Format-List * | Out-File "$($_.Name)_int.txt" -Encoding ascii }
 Get-NetAdapter -IncludeHidden >> netadapter.txt
 
-New-Item -Path adapters -ItemType Directory
+$null = New-Item -Path adapters -ItemType Directory -EA SilentlyContinue
 $arrInvalidChars = [System.IO.Path]::GetInvalidFileNameChars()
 $invalidChars = [RegEx]::Escape(-join $arrInvalidChars)
 
@@ -315,17 +315,17 @@ if ($null -ne $hotFix)
 # Copy the Windows event logs
 Write-Verbose "Get-SdnLogs - Collecting logs"
 $ErrorActionPreference = "SilentlyContinue"
-New-Item -Path winevt -ItemType Directory
+$null = New-Item -Path winevt -ItemType Directory -EA SilentlyContinue
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Application.evtx" -Destination winevt
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\System.evtx" -Destination winevt
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\\Microsoft-Windows-Hyper-V*.evtx" -Destination winevt
 Copy-Item "$env:SystemDrive\Windows\System32\Winevt\Logs\Microsoft-Windows-Host-Network-Service*.evtx" -Destination winevt
 
 # get logs
-New-Item -Path logs -ItemType Directory
+$null = New-Item -Path logs -ItemType Directory -EA SilentlyContinue
 Copy-Item "$env:SystemDrive\Windows\logs\NetSetup" -Destination logs -Recurse
 Copy-Item "$env:SystemDrive\Windows\logs\dism" -Destination logs -Recurse
 Copy-Item "$env:SystemDrive\Windows\logs\cbs" -Destination logs -Recurse
 
 Pop-Location
-Write-Host "Logs are available at $outDir"
+Write-Host -ForegroundColor Green "Logs are available at $outDir"
