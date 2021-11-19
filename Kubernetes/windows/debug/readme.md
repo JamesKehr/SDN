@@ -1,4 +1,4 @@
-#Data Collection
+# Data Collection
 
 ===================================================
 
@@ -8,7 +8,7 @@ Data will be saved to a child directory of the working directory (the path of th
 
 Two methods can be used to collect data: Online and Offline. 
 
-##Online
+## Online
 
 The Online method requires that the system be connected to the Internet and have access to github.com. All of the required files will be automatically downloaded to C:\k\debug, then the script will execute. 
 
@@ -38,13 +38,13 @@ Invoke-WebRequest https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_up
 
 
 
-##Offline
+## Offline
 
 The Offline method can be used when the system does not have Internet access, or does not have access to github.com. This method will require two systems, one of them with Internet and github.com access, plus a method to copy the files to the offline system.
 
 This method can be used to rerun the scripts on a system after they have already been downloaded, simply skip to the "From the offline Windows system" section. Please note that the script, by default, will always download the newest copies of the debug files. The -NoInternet parameter can be set to prevent this behavior.
 
-####From an internet connected Windows system:
+#### From an internet connected Windows system:
 
 - Open a Powershell console (Run as Administrator).
 
@@ -60,7 +60,7 @@ Invoke-WebRequest https://raw.githubusercontent.com/JamesKehr/SDN/collectlogs_up
 
 - Copy C:\k\debug from the online system to C:\k\debug on the offline system. Keeping the default folder structure will reduce the chance of running into issues.
 
-####From the offline Windows system:
+#### From the offline Windows system:
 
 - Open an elevated PowerShell console (Run as administrator).
 - Navigate to C:\k\debug, where the scripts and files should be located based on the steps above.
